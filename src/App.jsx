@@ -1,10 +1,29 @@
+import { useState } from "react";
 import Home from "./pages/Home";
+import Pomodoro from "./pages/Pomodoro";
 
 function App() {
+  const [currentPage, setCurrentPage] = useState("home");
+
+  const navigateTo = (page) => {
+    setCurrentPage(page);
+  };
+
+  const renderPage = () => {
+    switch (currentPage) {
+      case "home":
+        return <Home onNavigate={navigateTo} />;
+      case "pomodoro":
+        return <Pomodoro onNavigate={navigateTo} />;
+      default:
+        return <Home onNavigate={navigateTo} />;
+    }
+  };
+
   return (
-    <div className="w-[400px] border items-center justify-center overflow-hidden">
+    <div className="w-[400px] items-center justify-center overflow-hidden">
       {/* Content area - đây là nội dung thực sự của extension */}
-      <Home />
+      {renderPage()}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import React from "react";
 
-function Home() {
+function Home({ onNavigate }) {
   return (
     <div className="h-full bg-gradient-to-br from-yellow-400 via-orange-400 to-amber-500 font-primary overflow-auto">
       <div className="p-6">
@@ -14,7 +14,10 @@ function Home() {
         {/* Feature Cards */}
         <div className="space-y-3">
           {/* Pomodoro Timer */}
-          <div className="group bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer border border-white/20">
+          <div
+            onClick={() => onNavigate("pomodoro")}
+            className="group bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer border border-white/20"
+          >
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform duration-300">
                 🍅
