@@ -1,6 +1,6 @@
 import React from "react";
 
-function Timer({ time, isActive, progress = 0 }) {
+function Timer({ time, isActive, progress = 0, isBreak = false }) {
   // Format time từ seconds thành MM:SS
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -39,7 +39,7 @@ function Timer({ time, isActive, progress = 0 }) {
       {/* Time Display */}
       <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
         <div className="text-4xl font-bold font-mono tracking-wider drop-shadow-lg">{formatTime(time)}</div>
-        <div className="text-sm opacity-80 mt-1">{isActive ? "Focus Time" : "Ready"}</div>
+        <div className="text-sm opacity-80 mt-1">{isActive ? (isBreak ? "Break Time" : "Focus Time") : "Ready"}</div>
       </div>
 
       {/* Pulse Animation when active */}

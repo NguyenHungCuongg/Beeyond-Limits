@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Timer from "../components/Timer";
+import NumberSlider from "../components/NumberSlider";
 
 function Pomodoro({ onNavigate }) {
   const [focusTime, setFocusTime] = useState(25); // minutes
@@ -8,9 +9,99 @@ function Pomodoro({ onNavigate }) {
   const [isActive, setIsActive] = useState(false);
   const [isBreak, setIsBreak] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [sessionCount, setSessionCount] = useState(0);
+
+  const intervalRef = useRef(null);
+  const initialTimeRef = useRef(25 * 60);
+
+  const showNotification = useCallback((title, body) => {
+    // Browser notification (if permission granted)
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification(title, {
+        body: body,
+        icon: "/images/icon32.png",
+      });
+    }
+
+    // Console log for development
+    console.log(`🔔 ${title}: ${body}`);
+  }, []);
+
+  const handleTimerComplete = useCallback(() => {
+    // Clear interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    // Switch between focus and break
+    if (!isBreak) {
+      // Finished focus session, start break
+      setIsBreak(true);
+      setCurrentTime(breakTime * 60);
+      initialTimeRef.current = breakTime * 60;
+      setSessionCount((prev) => prev + 1);
+      setProgress(0);
+
+      // Show notification
+      showNotification("Great job! Time for a break! 🎉", "Take a " + breakTime + " minute break.");
+    } else {
+      // Finished break, start new focus session
+      setIsBreak(false);
+      setCurrentTime(focusTime * 60);
+      initialTimeRef.current = focusTime * 60;
+      setProgress(0);
+
+      // Show notification
+      showNotification("Break's over! Ready to focus? 💪", "Time for a " + focusTime + " minute focus session.");
+    }
+
+    // Timer continues automatically
+    setIsActive(true);
+  }, [isBreak, breakTime, focusTime, showNotification]);
+
+  // Cập nhật progress khi currentTime thay đổi
+  useEffect(() => {
+    if (initialTimeRef.current > 0) {
+      const newProgress = 1 - currentTime / initialTimeRef.current;
+      setProgress(Math.max(0, Math.min(1, newProgress)));
+    }
+  }, [currentTime]);
+
+  // Timer countdown logic
+  useEffect(() => {
+    if (isActive && currentTime > 0) {
+      intervalRef.current = setInterval(() => {
+        setCurrentTime((prev) => {
+          if (prev <= 1) {
+            // Timer finished
+            handleTimerComplete();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [isActive, currentTime, handleTimerComplete]);
 
   const handleStart = () => {
     setIsActive(true);
+
+    // Request notification permission
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
   };
 
   const handlePause = () => {
@@ -21,20 +112,31 @@ function Pomodoro({ onNavigate }) {
     setIsActive(false);
     setIsBreak(false);
     setCurrentTime(focusTime * 60);
+    initialTimeRef.current = focusTime * 60;
     setProgress(0);
+    setSessionCount(0);
+
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
   };
 
   const handleFocusTimeChange = (value) => {
     setFocusTime(value);
-    if (!isBreak) {
+    if (!isBreak && !isActive) {
       setCurrentTime(value * 60);
+      initialTimeRef.current = value * 60;
+      setProgress(0);
     }
   };
 
   const handleBreakTimeChange = (value) => {
     setBreakTime(value);
-    if (isBreak) {
+    if (isBreak && !isActive) {
       setCurrentTime(value * 60);
+      initialTimeRef.current = value * 60;
+      setProgress(0);
     }
   };
 
@@ -57,7 +159,7 @@ function Pomodoro({ onNavigate }) {
 
         {/* Timer Display */}
         <div className="mb-8">
-          <Timer time={currentTime} isActive={isActive} progress={progress} />
+          <Timer time={currentTime} isActive={isActive} progress={progress} isBreak={isBreak} />
         </div>
 
         {/* Session Type Indicator */}
@@ -83,58 +185,45 @@ function Pomodoro({ onNavigate }) {
         {/* Time Settings */}
         <div className="space-y-4 mb-8">
           {/* Focus Time Setting */}
-          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-white font-medium">Focus Duration</span>
-              <span className="text-white font-bold">{focusTime} min</span>
-            </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => handleFocusTimeChange(Math.max(1, focusTime - 5))}
-                className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-white hover:bg-white/30 transition-colors"
-              >
-                −
-              </button>
-              <div className="flex-1 bg-white/10 rounded-lg h-2 relative">
-                <div
-                  className="bg-white rounded-lg h-full transition-all duration-300"
-                  style={{ width: `${(focusTime / 60) * 100}%` }}
-                ></div>
-              </div>
-              <button
-                onClick={() => handleFocusTimeChange(Math.min(60, focusTime + 5))}
-                className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-white hover:bg-white/30 transition-colors"
-              >
-                +
-              </button>
-            </div>
-          </div>
+          <NumberSlider
+            label="Focus Duration"
+            value={focusTime}
+            min={5}
+            max={100}
+            step={5}
+            unit="min"
+            onChange={handleFocusTimeChange}
+          />
 
           {/* Break Time Setting */}
-          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-white font-medium">Break Duration</span>
-              <span className="text-white font-bold">{breakTime} min</span>
-            </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => handleBreakTimeChange(Math.max(1, breakTime - 1))}
-                className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-white hover:bg-white/30 transition-colors"
-              >
-                −
-              </button>
-              <div className="flex-1 bg-white/10 rounded-lg h-2 relative">
-                <div
-                  className="bg-white rounded-lg h-full transition-all duration-300"
-                  style={{ width: `${(breakTime / 30) * 100}%` }}
-                ></div>
+          <NumberSlider
+            label="Break Duration"
+            value={breakTime}
+            min={1}
+            max={30}
+            step={1}
+            unit="min"
+            onChange={handleBreakTimeChange}
+          />
+        </div>
+
+        {/* Session Stats */}
+        <div className="mb-6 bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+          <div className="text-center text-white">
+            <div className="text-sm opacity-80 mb-1">Current Session</div>
+            <div className="flex justify-center space-x-6">
+              <div>
+                <div className="font-bold text-lg">{sessionCount}</div>
+                <div className="text-xs opacity-70">Completed</div>
               </div>
-              <button
-                onClick={() => handleBreakTimeChange(Math.min(30, breakTime + 1))}
-                className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-white hover:bg-white/30 transition-colors"
-              >
-                +
-              </button>
+              <div>
+                <div className="font-bold text-lg">{isBreak ? "Break" : "Focus"}</div>
+                <div className="text-xs opacity-70">Mode</div>
+              </div>
+              <div>
+                <div className="font-bold text-lg">{Math.ceil(currentTime / 60)}</div>
+                <div className="text-xs opacity-70">Min Left</div>
+              </div>
             </div>
           </div>
         </div>
