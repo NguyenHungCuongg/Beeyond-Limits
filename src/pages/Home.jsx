@@ -45,13 +45,16 @@ function Home({ onNavigate }) {
           </div>
 
           {/* Task List */}
-          <div className="group bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer border border-white/20">
+          <div
+            onClick={() => onNavigate("tasklist")}
+            className="group bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer border border-white/20"
+          >
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform duration-300">
                 ✅
               </div>
               <div className="flex-1">
-                <h3 className="font-bold text-gray-800 group-hover:text-green-600 transition-colors">Task Manager</h3>
+                <h3 className="font-bold text-gray-800 group-hover:text-green-600 transition-colors">Task List</h3>
                 <p className="text-sm text-gray-600">Organize your goals</p>
               </div>
               <div className="text-gray-400 group-hover:text-green-500 transition-colors">→</div>

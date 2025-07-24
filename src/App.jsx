@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Home from "./pages/Home";
 import Pomodoro from "./pages/Pomodoro";
+import TaskList from "./pages/TaskList";
 
 function App() {
   const [currentPage, setCurrentPage] = useState("home");
@@ -15,6 +16,8 @@ function App() {
         return <Home onNavigate={navigateTo} />;
       case "pomodoro":
         return <Pomodoro onNavigate={navigateTo} />;
+      case "tasklist":
+        return <TaskList onNavigate={navigateTo} />;
       default:
         return <Home onNavigate={navigateTo} />;
     }
