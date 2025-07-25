@@ -2,6 +2,8 @@ import { useState } from "react";
 import Home from "./pages/Home";
 import Pomodoro from "./pages/Pomodoro";
 import TaskList from "./pages/TaskList";
+import WebsiteBlocker from "./pages/WebsiteBlocker";
+import { Toaster } from "react-hot-toast";
 
 function App() {
   const [currentPage, setCurrentPage] = useState("home");
@@ -18,6 +20,8 @@ function App() {
         return <Pomodoro onNavigate={navigateTo} />;
       case "tasklist":
         return <TaskList onNavigate={navigateTo} />;
+      case "websiteblocker":
+        return <WebsiteBlocker onNavigate={navigateTo} />;
       default:
         return <Home onNavigate={navigateTo} />;
     }
@@ -27,6 +31,7 @@ function App() {
     <div className="w-[400px] items-center justify-center overflow-hidden">
       {/* Content area - đây là nội dung thực sự của extension */}
       {renderPage()}
+      <Toaster />
     </div>
   );
 }

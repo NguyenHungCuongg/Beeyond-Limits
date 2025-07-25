@@ -37,26 +37,7 @@ function TaskList({ onNavigate }) {
           setTasks(result.tasks);
         } else {
           // Initialize with default tasks if no data exists
-          const defaultTasks = [
-            {
-              id: 1,
-              text: "Complete Chrome extension project",
-              completed: false,
-              createdAt: new Date().toISOString(),
-            },
-            {
-              id: 2,
-              text: "Review React documentation",
-              completed: true,
-              createdAt: new Date(Date.now() - 86400000).toISOString(), // Yesterday
-            },
-            {
-              id: 3,
-              text: "Plan tomorrow's workflow",
-              completed: false,
-              createdAt: new Date().toISOString(),
-            },
-          ];
+          const defaultTasks = [];
           setTasks(defaultTasks);
           // Save default tasks
           if (chromeStorage && chromeStorage.local) {
