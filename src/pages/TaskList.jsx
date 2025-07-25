@@ -1,32 +1,94 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Task from "../components/Task";
 
-function TaskList({ onNavigate }) {
-  const [tasks, setTasks] = useState([
-    {
-      id: 1,
-      text: "Complete Chrome extension project",
-      completed: false,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 2,
-      text: "Review React documentation",
-      completed: true,
-      createdAt: new Date(Date.now() - 86400000).toISOString(), // Yesterday
-    },
-    {
-      id: 3,
-      text: "Plan tomorrow's workflow",
-      completed: false,
-      createdAt: new Date().toISOString(),
-    },
-  ]);
+// eslint-disable-next-line no-undef
+const chromeStorage = typeof chrome !== "undefined" ? chrome.storage : null;
 
+function TaskList({ onNavigate }) {
+  const [tasks, setTasks] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [newTaskText, setNewTaskText] = useState("");
   const [filter, setFilter] = useState("all"); // all, active, completed
 
-  const addTask = () => {
+  // Save tasks function
+  const saveTasks = useCallback(async (tasksToSave) => {
+    try {
+      if (chromeStorage && chromeStorage.local) {
+        await chromeStorage.local.set({ tasks: tasksToSave });
+      } else {
+        // Fallback for development
+        localStorage.setItem("beeyond-tasks", JSON.stringify(tasksToSave));
+      }
+    } catch (error) {
+      console.error("Error saving tasks:", error);
+    }
+  }, []);
+
+  // Load tasks from Chrome storage on component mount
+  const loadTasks = useCallback(async () => {
+    try {
+      setIsLoading(true);
+
+      // Check if chrome.storage is available (for extension environment)
+      if (chromeStorage && chromeStorage.local) {
+        const result = await chromeStorage.local.get(["tasks"]);
+        if (result.tasks && Array.isArray(result.tasks)) {
+          setTasks(result.tasks);
+        } else {
+          // Initialize with default tasks if no data exists
+          const defaultTasks = [
+            {
+              id: 1,
+              text: "Complete Chrome extension project",
+              completed: false,
+              createdAt: new Date().toISOString(),
+            },
+            {
+              id: 2,
+              text: "Review React documentation",
+              completed: true,
+              createdAt: new Date(Date.now() - 86400000).toISOString(), // Yesterday
+            },
+            {
+              id: 3,
+              text: "Plan tomorrow's workflow",
+              completed: false,
+              createdAt: new Date().toISOString(),
+            },
+          ];
+          setTasks(defaultTasks);
+          // Save default tasks
+          if (chromeStorage && chromeStorage.local) {
+            await chromeStorage.local.set({ tasks: defaultTasks });
+          } else {
+            localStorage.setItem("beeyond-tasks", JSON.stringify(defaultTasks));
+          }
+        }
+      } else {
+        // Fallback for development (localhost) - use localStorage
+        const storedTasks = localStorage.getItem("beeyond-tasks");
+        if (storedTasks) {
+          setTasks(JSON.parse(storedTasks));
+        } else {
+          const defaultTasks = [];
+          setTasks(defaultTasks);
+          localStorage.setItem("beeyond-tasks", JSON.stringify(defaultTasks));
+        }
+      }
+    } catch (error) {
+      console.error("Error loading tasks:", error);
+      // Fallback to empty array if loading fails
+      setTasks([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTasks();
+  }, [loadTasks]);
+
+  const addTask = async () => {
     if (newTaskText.trim()) {
       const newTask = {
         id: Date.now(),
@@ -34,25 +96,35 @@ function TaskList({ onNavigate }) {
         completed: false,
         createdAt: new Date().toISOString(),
       };
-      setTasks([newTask, ...tasks]);
+      const updatedTasks = [newTask, ...tasks];
+      setTasks(updatedTasks);
+      await saveTasks(updatedTasks);
       setNewTaskText("");
     }
   };
 
-  const toggleTask = (taskId) => {
-    setTasks(tasks.map((task) => (task.id === taskId ? { ...task, completed: !task.completed } : task)));
+  const toggleTask = async (taskId) => {
+    const updatedTasks = tasks.map((task) => (task.id === taskId ? { ...task, completed: !task.completed } : task));
+    setTasks(updatedTasks);
+    await saveTasks(updatedTasks);
   };
 
-  const deleteTask = (taskId) => {
-    setTasks(tasks.filter((task) => task.id !== taskId));
+  const deleteTask = async (taskId) => {
+    const updatedTasks = tasks.filter((task) => task.id !== taskId);
+    setTasks(updatedTasks);
+    await saveTasks(updatedTasks);
   };
 
-  const editTask = (taskId, newText) => {
-    setTasks(tasks.map((task) => (task.id === taskId ? { ...task, text: newText } : task)));
+  const editTask = async (taskId, newText) => {
+    const updatedTasks = tasks.map((task) => (task.id === taskId ? { ...task, text: newText } : task));
+    setTasks(updatedTasks);
+    await saveTasks(updatedTasks);
   };
 
-  const clearCompleted = () => {
-    setTasks(tasks.filter((task) => !task.completed));
+  const clearCompleted = async () => {
+    const updatedTasks = tasks.filter((task) => !task.completed);
+    setTasks(updatedTasks);
+    await saveTasks(updatedTasks);
   };
 
   const handleKeyPress = (e) => {
@@ -138,7 +210,13 @@ function TaskList({ onNavigate }) {
 
         {/* Tasks List */}
         <div className="space-y-3 mb-6">
-          {filteredTasks.length > 0 ? (
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="text-4xl mb-4 animate-bounce">⏳</div>
+              <h3 className="text-white text-lg font-medium mb-2">Loading your tasks...</h3>
+              <p className="text-white/80 text-sm">Just a moment while we fetch your data</p>
+            </div>
+          ) : filteredTasks.length > 0 ? (
             filteredTasks.map((task) => (
               <Task key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onEdit={editTask} />
             ))

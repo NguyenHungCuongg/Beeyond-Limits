@@ -87,7 +87,7 @@ function Task({ task, onToggle, onDelete, onEdit }) {
             className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
               isEditing
                 ? "bg-green-100 text-green-600 hover:bg-green-200"
-                : "bg-blue-100 text-blue-600 hover:bg-blue-200"
+                : "bg-green-200 text-green-700 hover:bg-green-300"
             }`}
             title={isEditing ? "Save" : "Edit"}
           >
@@ -97,7 +97,7 @@ function Task({ task, onToggle, onDelete, onEdit }) {
           {/* Delete Button */}
           <button
             onClick={() => onDelete(task.id)}
-            className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center text-red-600 hover:bg-red-200 transition-colors"
+            className="w-8 h-8 bg-green-200 rounded-lg flex items-center justify-center text-green-700 hover:bg-green-300 transition-colors"
             title="Delete"
           >
             🗑️
