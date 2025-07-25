@@ -144,14 +144,14 @@ function Pomodoro({ onNavigate }) {
     <div className="h-full bg-gradient-to-br from-red-500 via-orange-500 to-red-600 font-primary overflow-auto">
       <div className="p-6">
         {/* Header với back button */}
-        <div className="flex items-center mb-6">
+        <div className="flex flex-col items-start mb-6">
           <button
             onClick={() => onNavigate("home")}
             className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-white hover:bg-white/30 transition-colors mr-4"
           >
             ←
           </button>
-          <div className="flex-1 text-center">
+          <div className="flex-1 text-center self-center">
             <h1 className="text-2xl font-bold text-white drop-shadow-lg">Pomodoro Timer</h1>
             <p className="text-red-100 text-sm">Stay focused, bee productive! 🍅</p>
           </div>

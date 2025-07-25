@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Task from "../components/Task";
+import TaskStats from "../components/TaskStats";
 
 // eslint-disable-next-line no-undef
 const chromeStorage = typeof chrome !== "undefined" ? chrome.storage : null;
@@ -144,20 +145,19 @@ function TaskList({ onNavigate }) {
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter((task) => task.completed).length;
   const activeTasks = totalTasks - completedTasks;
-  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   return (
     <div className="h-full bg-gradient-to-br from-green-500 via-emerald-500 to-green-600 font-primary overflow-auto">
       <div className="p-6">
         {/* Header với back button */}
-        <div className="flex items-center mb-6">
+        <div className="flex flex-col items-start mb-6">
           <button
             onClick={() => onNavigate("home")}
             className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-white hover:bg-white/30 transition-colors mr-4"
           >
             ←
           </button>
-          <div className="flex-1 text-center">
+          <div className="flex-1 text-center self-center">
             <h1 className="text-2xl font-bold text-white drop-shadow-lg">Task Manager</h1>
             <p className="text-green-100 text-sm">Organize your goals, bee productive!</p>
           </div>
@@ -250,37 +250,7 @@ function TaskList({ onNavigate }) {
         )}
 
         {/* Stats */}
-        <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30">
-          <div className="text-center text-white mb-3">
-            <h3 className="font-medium text-sm opacity-80">Today's Progress</h3>
-          </div>
-          <div className="flex justify-between items-center text-white">
-            <div className="text-center flex-1">
-              <div className="text-lg font-bold">{totalTasks}</div>
-              <div className="text-xs opacity-80">Total Tasks</div>
-            </div>
-            <div className="w-px h-8 bg-white/30"></div>
-            <div className="text-center flex-1">
-              <div className="text-lg font-bold">{completedTasks}</div>
-              <div className="text-xs opacity-80">Completed</div>
-            </div>
-            <div className="w-px h-8 bg-white/30"></div>
-            <div className="text-center flex-1">
-              <div className="text-lg font-bold">{completionRate}%</div>
-              <div className="text-xs opacity-80">Success Rate</div>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="mt-4">
-            <div className="bg-white/20 rounded-full h-2 overflow-hidden">
-              <div
-                className="bg-white h-full rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${completionRate}%` }}
-              ></div>
-            </div>
-          </div>
-        </div>
+        <TaskStats tasks={tasks} />
 
         {/* Home Button */}
         <div className="mt-6">
