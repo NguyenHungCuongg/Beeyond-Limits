@@ -11,11 +11,11 @@ function debugLog(message, data = null) {
 // Validate that we have access to chrome.storage
 function validateChromeAPI() {
   if (typeof chrome === "undefined") {
-    console.error("❌ Chrome API not available");
+    console.error("Chrome API not available");
     return false;
   }
   if (!chrome.storage) {
-    console.error("❌ Chrome storage API not available");
+    console.error("Chrome storage API not available");
     return false;
   }
   debugLog("✅ Chrome APIs available");
@@ -31,7 +31,7 @@ async function checkAndBlockPage() {
 
   // Validate Chrome APIs first
   if (!validateChromeAPI()) {
-    console.error("❌ Cannot access Chrome APIs - extension may not be loaded properly");
+    console.error("Cannot access Chrome APIs - extension may not be loaded properly");
     return;
   }
 
@@ -69,19 +69,19 @@ async function checkAndBlockPage() {
     });
 
     if (isBlocked) {
-      debugLog("🚫 PAGE BLOCKED!", currentHost);
+      debugLog("PAGE BLOCKED!", currentHost);
       isPageBlocked = true;
       blockPageImmediately(currentHost);
     } else {
-      debugLog("✅ Page allowed", currentHost);
+      debugLog("Page allowed", currentHost);
     }
   } catch (error) {
-    console.error("❌ Content script error:", error);
+    console.error("Content script error:", error);
   }
 }
 
 function blockPageImmediately(hostname) {
-  debugLog("🛑 Blocking page immediately:", hostname);
+  debugLog("Blocking page immediately:", hostname);
 
   // Stop all loading
   try {
@@ -186,11 +186,11 @@ function blockPageImmediately(hostname) {
     </html>
   `;
 
-  debugLog("✅ Page blocked successfully");
+  debugLog("Page blocked successfully");
 }
 
 // Initialize immediately - multiple execution strategies
-debugLog("🚀 Content script starting...");
+debugLog("Content script starting...");
 
 // Strategy 1: Run immediately
 checkAndBlockPage();
@@ -241,4 +241,4 @@ setTimeout(() => {
   clearInterval(intervalCheck);
 }, 10000);
 
-debugLog("✅ Content script initialization complete");
+debugLog("Content script initialization complete");
