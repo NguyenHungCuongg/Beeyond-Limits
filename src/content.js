@@ -3,11 +3,6 @@
 
 let isPageBlocked = false;
 
-// Debug function
-function debugLog(message, data = null) {
-  console.log(`[Content Script] ${message}`, data || "");
-}
-
 // Validate that we have access to chrome.storage
 function validateChromeAPI() {
   if (typeof chrome === "undefined") {
@@ -18,14 +13,12 @@ function validateChromeAPI() {
     console.error("Chrome storage API not available");
     return false;
   }
-  debugLog("✅ Chrome APIs available");
   return true;
 }
 
 // Check if current page should be blocked
 async function checkAndBlockPage() {
   if (isPageBlocked) {
-    debugLog("Page already blocked, skipping");
     return;
   }
 
@@ -38,21 +31,12 @@ async function checkAndBlockPage() {
   try {
     const { blockedUrls = [], isBlocking = false } = await chrome.storage.local.get(["blockedUrls", "isBlocking"]);
 
-    debugLog("Storage data retrieved:", {
-      blockedUrls: blockedUrls.map((u) => u.url),
-      isBlocking,
-      urlCount: blockedUrls.length,
-    });
-
     if (!isBlocking || blockedUrls.length === 0) {
-      debugLog("Blocking disabled or no URLs to block");
       return;
     }
 
     const currentHost = window.location.hostname.toLowerCase();
     const currentUrl = window.location.href.toLowerCase();
-
-    debugLog("Checking current URL:", { hostname: currentHost, url: currentUrl });
 
     // Check if current page matches any blocked URL
     const isBlocked = blockedUrls.some((blockedUrl) => {
@@ -64,16 +48,12 @@ async function checkAndBlockPage() {
         currentUrl.includes(domain) ||
         domain.includes(currentHost);
 
-      debugLog(`Checking domain ${domain} against ${currentHost}:`, matches);
       return matches;
     });
 
     if (isBlocked) {
-      debugLog("PAGE BLOCKED!", currentHost);
       isPageBlocked = true;
       blockPageImmediately(currentHost);
-    } else {
-      debugLog("Page allowed", currentHost);
     }
   } catch (error) {
     console.error("Content script error:", error);
@@ -81,16 +61,12 @@ async function checkAndBlockPage() {
 }
 
 function blockPageImmediately(hostname) {
-  debugLog("Blocking page immediately:", hostname);
-
   // Stop all loading
   try {
     window.stop();
-  } catch (e) {
-    debugLog("Could not stop window loading:", e);
-  }
-
-  // Prevent any further navigation
+  } catch {
+    // Ignore if stop() is not available
+  } // Prevent any further navigation
   window.addEventListener("beforeunload", (e) => {
     e.preventDefault();
     e.returnValue = "";
@@ -185,12 +161,9 @@ function blockPageImmediately(hostname) {
       </body>
     </html>
   `;
-
-  debugLog("Page blocked successfully");
 }
 
 // Initialize immediately - multiple execution strategies
-debugLog("Content script starting...");
 
 // Strategy 1: Run immediately
 checkAndBlockPage();
@@ -240,5 +213,3 @@ const intervalCheck = setInterval(() => {
 setTimeout(() => {
   clearInterval(intervalCheck);
 }, 10000);
-
-debugLog("Content script initialization complete");

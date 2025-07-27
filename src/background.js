@@ -1,11 +1,6 @@
 // Background script for dynamic website blocking
 /* global chrome */
 
-// Debug function
-function debugLog(message, data = null) {
-  console.log(`[Beeyond Limits] ${message}`, data || "");
-}
-
 // Function to create proper URL patterns
 function createUrlPatterns(domain) {
   // Tạo comprehensive patterns để bắt ALL variations
@@ -24,27 +19,17 @@ function createUrlPatterns(domain) {
 // Update blocking rules based on stored data
 async function updateBlockingRules() {
   try {
-    debugLog("🔄 Starting updateBlockingRules");
-
     // Get current settings
     const { blockedUrls = [], isBlocking = false } = await chrome.storage.local.get(["blockedUrls", "isBlocking"]);
-    debugLog("📊 Current settings:", {
-      blockedUrls: blockedUrls.map((u) => u.url),
-      isBlocking,
-      count: blockedUrls.length,
-    });
 
     // Remove ALL existing dynamic rules first
     const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
     const ruleIdsToRemove = existingRules.map((rule) => rule.id);
 
-    debugLog("🗑️ Removing existing rules:", ruleIdsToRemove);
-
     if (ruleIdsToRemove.length > 0) {
       await chrome.declarativeNetRequest.updateDynamicRules({
         removeRuleIds: ruleIdsToRemove,
       });
-      debugLog("✅ Removed all existing rules");
     }
 
     // Add new rules if blocking is enabled AND we have URLs
@@ -72,7 +57,6 @@ async function updateBlockingRules() {
           };
 
           newRules.push(rule);
-          debugLog(`🎯 Created rule for ${blockedUrl.url} with pattern: ${pattern}`);
         });
 
         // Add additional catch-all rule for this domain
@@ -91,63 +75,41 @@ async function updateBlockingRules() {
           },
         };
         newRules.push(catchAllRule);
-        debugLog(`🎯 Created catch-all rule for ${blockedUrl.url}`);
       }); // Add all rules at once
       await chrome.declarativeNetRequest.updateDynamicRules({
         addRules: newRules,
       });
 
-      debugLog("✅ Successfully added rules:", {
-        totalRules: newRules.length,
-        domains: blockedUrls.map((u) => u.url),
-      });
-
       // Verify rules were added
-      const finalRules = await chrome.declarativeNetRequest.getDynamicRules();
-      debugLog("🔍 Final active rules:", finalRules.length);
-    } else {
-      debugLog("⚠️ No rules to add:", { isBlocking, urlCount: blockedUrls.length });
+      await chrome.declarativeNetRequest.getDynamicRules();
     }
   } catch (error) {
-    console.error("❌ Error updating blocking rules:", error);
+    console.error("Error updating blocking rules:", error);
   }
 }
 
 // Listen for storage changes
 chrome.storage.onChanged.addListener(async (changes, areaName) => {
-  debugLog("📝 Storage changed:", { changes: Object.keys(changes), areaName });
-
   if (areaName === "local" && (changes.blockedUrls || changes.isBlocking)) {
-    debugLog("🔄 Triggering rule update due to storage change");
     await updateBlockingRules();
   }
 });
 
 // Initialize on startup
 chrome.runtime.onStartup.addListener(async () => {
-  debugLog("🚀 Extension startup - initializing rules");
   await updateBlockingRules();
 });
 
 // Initialize on install/update
-chrome.runtime.onInstalled.addListener(async (details) => {
-  debugLog("📦 Extension installed/updated:", details.reason);
+chrome.runtime.onInstalled.addListener(async () => {
   await updateBlockingRules();
 });
 
 // Manual debug trigger
 chrome.action.onClicked.addListener(async () => {
-  debugLog("👆 Extension icon clicked - manual debug");
-
   // Show current status
-  const storage = await chrome.storage.local.get(["blockedUrls", "isBlocking"]);
-  const rules = await chrome.declarativeNetRequest.getDynamicRules();
-
-  debugLog("=== DEBUG STATUS ===");
-  debugLog("Blocked URLs:", storage.blockedUrls?.map((u) => u.url) || []);
-  debugLog("Is Blocking:", storage.isBlocking);
-  debugLog("Active Rules:", rules.length);
-  debugLog("==================");
+  await chrome.storage.local.get(["blockedUrls", "isBlocking"]);
+  await chrome.declarativeNetRequest.getDynamicRules();
 
   await updateBlockingRules();
 });
