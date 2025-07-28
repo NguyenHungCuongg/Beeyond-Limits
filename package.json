@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && npm run copy-files",
-    "copy-files": "if not exist dist\\src mkdir dist\\src && copy src\\content.js dist\\src\\ && copy src\\background.js dist\\src\\ && copy manifest.json dist\\ && copy rules.json dist\\",
+    "copy-files": "if not exist dist\\src mkdir dist\\src && copy src\\content.js dist\\src\\ && copy src\\background.js dist\\src\\ && copy manifest.json dist\\ && copy rules.json dist\\ && if exist public\\audio xcopy public\\audio dist\\audio\\ /E /I /Y",
     "lint": "eslint .",
     "preview": "vite preview"
   },

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Timer from "../components/Timer";
 import NumberSlider from "../components/NumberSlider";
+import audioManager from "../utils/audioManager";
 
 function Pomodoro({ onNavigate }) {
   const [focusTime, setFocusTime] = useState(25); // minutes
@@ -10,6 +11,7 @@ function Pomodoro({ onNavigate }) {
   const [isBreak, setIsBreak] = useState(false);
   const [progress, setProgress] = useState(0);
   const [sessionCount, setSessionCount] = useState(0);
+  const [audioEnabled, setAudioEnabled] = useState(true); // Audio control state
 
   const intervalRef = useRef(null);
   const initialTimeRef = useRef(25 * 60);
@@ -22,12 +24,9 @@ function Pomodoro({ onNavigate }) {
         icon: "/images/icon32.png",
       });
     }
-
-    // Console log for development
-    console.log(`🔔 ${title}: ${body}`);
   }, []);
 
-  const handleTimerComplete = useCallback(() => {
+  const handleTimerComplete = useCallback(async () => {
     // Clear interval
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -43,6 +42,15 @@ function Pomodoro({ onNavigate }) {
       setSessionCount((prev) => prev + 1);
       setProgress(0);
 
+      // Play audio notification for break time
+      if (audioEnabled) {
+        try {
+          await audioManager.playNotificationSequence("break");
+        } catch (error) {
+          console.error("Failed to play break audio:", error);
+        }
+      }
+
       // Show notification
       showNotification("Great job! Time for a break! 🎉", "Take a " + breakTime + " minute break.");
     } else {
@@ -52,13 +60,22 @@ function Pomodoro({ onNavigate }) {
       initialTimeRef.current = focusTime * 60;
       setProgress(0);
 
+      // Play audio notification for focus time
+      if (audioEnabled) {
+        try {
+          await audioManager.playNotificationSequence("focus");
+        } catch (error) {
+          console.error("Failed to play focus audio:", error);
+        }
+      }
+
       // Show notification
       showNotification("Break's over! Ready to focus? 💪", "Time for a " + focusTime + " minute focus session.");
     }
 
     // Timer continues automatically
     setIsActive(true);
-  }, [isBreak, breakTime, focusTime, showNotification]);
+  }, [isBreak, breakTime, focusTime, showNotification, audioEnabled]);
 
   // Cập nhật progress khi currentTime thay đổi
   useEffect(() => {
@@ -101,6 +118,21 @@ function Pomodoro({ onNavigate }) {
     // Request notification permission
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
+    }
+
+    // Initialize audio on first start
+    if (audioEnabled) {
+      audioManager.initAudio();
+    }
+  };
+
+  const handleTestAudio = async () => {
+    if (!audioEnabled) return;
+
+    try {
+      await audioManager.playNotificationSequence(isBreak ? "focus" : "break");
+    } catch (error) {
+      console.error("Failed to test audio:", error);
     }
   };
 
@@ -205,6 +237,39 @@ function Pomodoro({ onNavigate }) {
             unit="min"
             onChange={handleBreakTimeChange}
           />
+
+          {/* Audio Control */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-3">
+                <div className="text-white text-xl">🔊</div>
+                <div>
+                  <div className="font-medium text-white">Audio Notifications</div>
+                  <div className="text-xs text-white/70">Play sounds when switching modes</div>
+                </div>
+              </div>
+              <button
+                onClick={() => setAudioEnabled(!audioEnabled)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 ${
+                  audioEnabled ? "bg-white" : "bg-white/30"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-red-500 transition ${
+                    audioEnabled ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+            {audioEnabled && (
+              <button
+                onClick={handleTestAudio}
+                className="w-full bg-white/20 backdrop-blur-sm text-white text-sm font-medium py-2 rounded-lg border border-white/30 hover:bg-white/30 transition-colors"
+              >
+                🎵 Test Audio
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Session Stats */}
