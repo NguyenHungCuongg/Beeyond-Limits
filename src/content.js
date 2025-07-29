@@ -3,6 +3,121 @@
 
 let isPageBlocked = false;
 
+console.log("Beeyond Limits content script loaded");
+
+// Listen for messages from background script for audio playback
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log("Content script received message:", message);
+
+  if (message.type === "PLAY_POMODORO_AUDIO") {
+    playPomodoroAudio(message.context)
+      .then(() => {
+        console.log("Audio playback completed successfully");
+        sendResponse({ success: true });
+      })
+      .catch((error) => {
+        console.error("Audio playback failed:", error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // Keep message channel open for async response
+  }
+  return false;
+});
+
+// Audio playback function for Pomodoro
+async function playPomodoroAudio(context) {
+  try {
+    console.log(`Playing Pomodoro audio for context: ${context}`);
+
+    // Create audio elements with proper URLs
+    const alarmUrl = chrome.runtime.getURL("audio/pomodoro_alarm.m4a");
+    const alarmAudio = new Audio(alarmUrl);
+
+    console.log(`Alarm audio URL: ${alarmUrl}`);
+
+    // Get random context audio
+    const contextAudio = getRandomContextAudio(context);
+
+    if (!contextAudio) {
+      console.error("No audio file found for context:", context);
+      throw new Error(`No audio file found for context: ${context}`);
+    }
+
+    // Play alarm first
+    console.log("Playing alarm audio...");
+    alarmAudio.volume = 0.7;
+    await playAudio(alarmAudio);
+
+    // Wait a bit, then play context audio
+    console.log("Playing context audio...");
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    contextAudio.volume = 0.6;
+    await playAudio(contextAudio);
+
+    console.log("Audio sequence completed successfully");
+  } catch (error) {
+    console.error("Error playing Pomodoro audio:", error);
+    throw error;
+  }
+}
+
+function getRandomContextAudio(context) {
+  const audioFiles = {
+    break: ["break_time_1.m4a", "break_time_2.m4a", "break_time_3.m4a"],
+    focus: ["focus_time_1.m4a", "focus_time_2.m4a", "focus_time_3.m4a"],
+  };
+
+  const files = audioFiles[context];
+  if (!files || files.length === 0) {
+    console.error(`No audio files defined for context: ${context}`);
+    return null;
+  }
+
+  const randomFile = files[Math.floor(Math.random() * files.length)];
+  const audioUrl = chrome.runtime.getURL(`audio/${randomFile}`);
+  console.log(`Selected ${context} audio: ${audioUrl}`);
+  return new Audio(audioUrl);
+}
+
+function playAudio(audio) {
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("error", onError);
+      audio.removeEventListener("canplaythrough", onCanPlay);
+    };
+
+    const onEnded = () => {
+      console.log("Audio playback ended");
+      cleanup();
+      resolve();
+    };
+
+    const onError = (error) => {
+      console.error("Audio playback error:", error);
+      cleanup();
+      reject(error);
+    };
+
+    const onCanPlay = () => {
+      console.log("Audio can play, starting playback...");
+      audio.play().catch((playError) => {
+        console.warn("Audio autoplay blocked or failed:", playError);
+        cleanup();
+        resolve(); // Continue even if audio is blocked
+      });
+    };
+
+    audio.addEventListener("ended", onEnded);
+    audio.addEventListener("error", onError);
+    audio.addEventListener("canplaythrough", onCanPlay);
+
+    // Start loading the audio
+    audio.load();
+  });
+}
+
 // Validate that we have access to chrome.storage
 function validateChromeAPI() {
   if (typeof chrome === "undefined") {

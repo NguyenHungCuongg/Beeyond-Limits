@@ -1,7 +1,120 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Timer from "../components/Timer";
 import NumberSlider from "../components/NumberSlider";
-import audioManager from "../utils/audioManager";
+
+/* global chrome */
+
+// Popup Audio Manager - plays audio directly in extension popup
+class PopupAudioManager {
+  constructor() {
+    this.currentAudio = null;
+    this.isPlaying = false;
+  }
+
+  async playAudio(filename) {
+    try {
+      if (this.currentAudio) {
+        this.currentAudio.pause();
+        this.currentAudio.currentTime = 0;
+      }
+
+      const audioUrl = chrome.runtime.getURL(`audio/${filename}`);
+      console.log(`Playing audio: ${audioUrl}`);
+
+      this.currentAudio = new Audio(audioUrl);
+      this.currentAudio.volume = 0.7;
+
+      return new Promise((resolve, reject) => {
+        this.currentAudio.onended = () => {
+          console.log(`Audio finished: ${filename}`);
+          this.isPlaying = false;
+          resolve();
+        };
+
+        this.currentAudio.onerror = (error) => {
+          console.error(`Audio error for ${filename}:`, error);
+          this.isPlaying = false;
+          reject(error);
+        };
+
+        this.currentAudio.oncanplaythrough = () => {
+          console.log(`Audio ready to play: ${filename}`);
+          this.isPlaying = true;
+          this.currentAudio.play().catch(reject);
+        };
+
+        this.currentAudio.load();
+      });
+    } catch (error) {
+      console.error(`Error playing ${filename}:`, error);
+      this.isPlaying = false;
+      throw error;
+    }
+  }
+
+  getRandomAudio(audioArray) {
+    const randomIndex = Math.floor(Math.random() * audioArray.length);
+    return audioArray[randomIndex];
+  }
+
+  async playPomodoroSequence(context) {
+    try {
+      console.log(`Playing Pomodoro sequence for: ${context}`);
+
+      await this.playAudio("pomodoro_alarm.m4a");
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      let contextAudios = [];
+      if (context === "break") {
+        contextAudios = ["break_time_1.m4a", "break_time_2.m4a", "break_time_3.m4a"];
+      } else if (context === "focus") {
+        contextAudios = ["focus_time_1.m4a", "focus_time_2.m4a", "focus_time_3.m4a"];
+      }
+
+      if (contextAudios.length > 0) {
+        const selectedAudio = this.getRandomAudio(contextAudios);
+        await this.playAudio(selectedAudio);
+      }
+
+      console.log(`Pomodoro sequence completed for: ${context}`);
+    } catch (error) {
+      console.error(`Error playing Pomodoro sequence for ${context}:`, error);
+      this.playBeep(context);
+    }
+  }
+
+  playBeep(context) {
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      if (context === "break") {
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      } else {
+        oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+      }
+
+      oscillator.type = "sine";
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+
+      console.log(`Fallback beep played for: ${context}`);
+    } catch (error) {
+      console.error("Fallback beep failed:", error);
+    }
+  }
+}
+
+// Create audio manager instance
+const audioManager = new PopupAudioManager();
 
 function Pomodoro({ onNavigate }) {
   const [focusTime, setFocusTime] = useState(25); // minutes
@@ -13,164 +126,190 @@ function Pomodoro({ onNavigate }) {
   const [sessionCount, setSessionCount] = useState(0);
   const [audioEnabled, setAudioEnabled] = useState(true); // Audio control state
 
-  const intervalRef = useRef(null);
   const initialTimeRef = useRef(25 * 60);
 
-  const showNotification = useCallback((title, body) => {
-    // Browser notification (if permission granted)
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification(title, {
-        body: body,
-        icon: "/images/icon32.png",
-      });
+  // Sync with background timer
+  const syncWithBackground = useCallback(async () => {
+    // Check if running in Chrome Extension context
+    if (!chrome?.runtime?.sendMessage) {
+      console.warn("Chrome runtime not available - running in dev mode");
+      return;
+    }
+
+    try {
+      const response = await chrome.runtime.sendMessage({ type: "POMODORO_GET_STATE" });
+      if (response && response.state) {
+        const state = response.state;
+        setCurrentTime(state.currentTime);
+        setIsActive(state.isActive);
+        setIsBreak(state.isBreak);
+        setSessionCount(state.sessionCount);
+        setFocusTime(state.focusTime);
+        setBreakTime(state.breakTime);
+        setAudioEnabled(state.audioEnabled);
+        initialTimeRef.current = state.initialTime;
+
+        // Calculate progress
+        const progressPercent =
+          state.initialTime > 0 ? ((state.initialTime - state.currentTime) / state.initialTime) * 100 : 0;
+        setProgress(progressPercent);
+      }
+    } catch (error) {
+      console.error("Error syncing with background timer:", error);
     }
   }, []);
 
-  const handleTimerComplete = useCallback(async () => {
-    // Clear interval
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
-    // Switch between focus and break
-    if (!isBreak) {
-      // Finished focus session, start break
-      setIsBreak(true);
-      setCurrentTime(breakTime * 60);
-      initialTimeRef.current = breakTime * 60;
-      setSessionCount((prev) => prev + 1);
-      setProgress(0);
-
-      // Play audio notification for break time
-      if (audioEnabled) {
-        try {
-          await audioManager.playNotificationSequence("break");
-        } catch (error) {
-          console.error("Failed to play break audio:", error);
-        }
-      }
-
-      // Show notification
-      showNotification("Great job! Time for a break! 🎉", "Take a " + breakTime + " minute break.");
-    } else {
-      // Finished break, start new focus session
-      setIsBreak(false);
-      setCurrentTime(focusTime * 60);
-      initialTimeRef.current = focusTime * 60;
-      setProgress(0);
-
-      // Play audio notification for focus time
-      if (audioEnabled) {
-        try {
-          await audioManager.playNotificationSequence("focus");
-        } catch (error) {
-          console.error("Failed to play focus audio:", error);
-        }
-      }
-
-      // Show notification
-      showNotification("Break's over! Ready to focus? 💪", "Time for a " + focusTime + " minute focus session.");
-    }
-
-    // Timer continues automatically
-    setIsActive(true);
-  }, [isBreak, breakTime, focusTime, showNotification, audioEnabled]);
-
-  // Cập nhật progress khi currentTime thay đổi
+  // Listen for state updates from background
   useEffect(() => {
-    if (initialTimeRef.current > 0) {
-      const newProgress = 1 - currentTime / initialTimeRef.current;
-      setProgress(Math.max(0, Math.min(1, newProgress)));
-    }
-  }, [currentTime]);
-
-  // Timer countdown logic
-  useEffect(() => {
-    if (isActive && currentTime > 0) {
-      intervalRef.current = setInterval(() => {
-        setCurrentTime((prev) => {
-          if (prev <= 1) {
-            // Timer finished
-            handleTimerComplete();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+    // Check if running in Chrome Extension context
+    if (!chrome?.runtime?.onMessage) {
+      console.warn("Chrome runtime not available - running in dev mode");
+      return;
     }
 
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+    const handleMessage = (message) => {
+      if (message.type === "POMODORO_STATE_UPDATE" && message.state) {
+        const state = message.state;
+        setCurrentTime(state.currentTime);
+        setIsActive(state.isActive);
+        setIsBreak(state.isBreak);
+        setSessionCount(state.sessionCount);
+        initialTimeRef.current = state.initialTime;
+
+        // Calculate progress
+        const progressPercent =
+          state.initialTime > 0 ? ((state.initialTime - state.currentTime) / state.initialTime) * 100 : 0;
+        setProgress(progressPercent);
       }
     };
-  }, [isActive, currentTime, handleTimerComplete]);
 
-  const handleStart = () => {
-    setIsActive(true);
+    chrome.runtime.onMessage.addListener(handleMessage);
 
+    // Initial sync
+    syncWithBackground();
+
+    // Sync every second while popup is open
+    const syncInterval = setInterval(syncWithBackground, 1000);
+
+    return () => {
+      if (chrome?.runtime?.onMessage) {
+        chrome.runtime.onMessage.removeListener(handleMessage);
+      }
+      clearInterval(syncInterval);
+    };
+  }, [syncWithBackground]);
+
+  // Handler functions for timer controls
+  const handleStart = useCallback(async () => {
     // Request notification permission
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
     }
 
-    // Initialize audio on first start
-    if (audioEnabled) {
-      audioManager.initAudio();
+    // Check if running in Chrome Extension context
+    if (!chrome?.runtime?.sendMessage) {
+      console.warn("Chrome runtime not available - running in dev mode");
+      return;
     }
-  };
 
-  const handleTestAudio = async () => {
+    try {
+      await chrome.runtime.sendMessage({ type: "POMODORO_START" });
+    } catch (error) {
+      console.error("Error starting timer:", error);
+    }
+  }, []);
+
+  const handleTestAudio = useCallback(async () => {
     if (!audioEnabled) return;
 
     try {
-      await audioManager.playNotificationSequence(isBreak ? "focus" : "break");
+      console.log("Testing audio directly in popup...");
+
+      // Play audio directly in popup
+      await audioManager.playPomodoroSequence(isBreak ? "focus" : "break");
+
+      console.log("Popup audio test completed successfully");
     } catch (error) {
-      console.error("Failed to test audio:", error);
+      console.error("Popup audio test failed:", error);
+
+      // Fallback: try through background script
+      if (chrome?.runtime?.sendMessage) {
+        try {
+          await chrome.runtime.sendMessage({
+            type: "POMODORO_TEST_AUDIO",
+            context: isBreak ? "focus" : "break",
+          });
+          console.log("Background audio test sent");
+        } catch (bgError) {
+          console.error("Background audio test also failed:", bgError);
+        }
+      }
     }
-  };
+  }, [audioEnabled, isBreak]);
 
-  const handlePause = () => {
-    setIsActive(false);
-  };
-
-  const handleReset = () => {
-    setIsActive(false);
-    setIsBreak(false);
-    setCurrentTime(focusTime * 60);
-    initialTimeRef.current = focusTime * 60;
-    setProgress(0);
-    setSessionCount(0);
-
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+  const handlePause = useCallback(async () => {
+    // Check if running in Chrome Extension context
+    if (!chrome?.runtime?.sendMessage) {
+      console.warn("Chrome runtime not available - running in dev mode");
+      return;
     }
-  };
 
-  const handleFocusTimeChange = (value) => {
-    setFocusTime(value);
-    if (!isBreak && !isActive) {
-      setCurrentTime(value * 60);
-      initialTimeRef.current = value * 60;
-      setProgress(0);
+    try {
+      await chrome.runtime.sendMessage({ type: "POMODORO_PAUSE" });
+    } catch (error) {
+      console.error("Error pausing timer:", error);
     }
-  };
+  }, []);
 
-  const handleBreakTimeChange = (value) => {
-    setBreakTime(value);
-    if (isBreak && !isActive) {
-      setCurrentTime(value * 60);
-      initialTimeRef.current = value * 60;
-      setProgress(0);
+  const handleReset = useCallback(async () => {
+    // Check if running in Chrome Extension context
+    if (!chrome?.runtime?.sendMessage) {
+      console.warn("Chrome runtime not available - running in dev mode");
+      return;
     }
-  };
+
+    try {
+      await chrome.runtime.sendMessage({ type: "POMODORO_RESET" });
+    } catch (error) {
+      console.error("Error resetting timer:", error);
+    }
+  }, []);
+
+  // Handle focus time change
+  const handleFocusTimeChange = useCallback((newFocusTime) => {
+    setFocusTime(newFocusTime);
+
+    // Check if running in Chrome Extension context
+    if (!chrome?.runtime?.sendMessage) {
+      console.warn("Chrome runtime not available - running in dev mode");
+      return;
+    }
+
+    chrome.runtime
+      .sendMessage({
+        type: "POMODORO_UPDATE_SETTINGS",
+        settings: { focusTime: newFocusTime },
+      })
+      .catch((error) => console.error("Error updating focus time:", error));
+  }, []);
+
+  // Handle break time change
+  const handleBreakTimeChange = useCallback((newBreakTime) => {
+    setBreakTime(newBreakTime);
+
+    // Check if running in Chrome Extension context
+    if (!chrome?.runtime?.sendMessage) {
+      console.warn("Chrome runtime not available - running in dev mode");
+      return;
+    }
+
+    chrome.runtime
+      .sendMessage({
+        type: "POMODORO_UPDATE_SETTINGS",
+        settings: { breakTime: newBreakTime },
+      })
+      .catch((error) => console.error("Error updating break time:", error));
+  }, []);
 
   return (
     <div className="h-full bg-gradient-to-br from-red-500 via-orange-500 to-red-600 font-primary overflow-auto">
@@ -249,7 +388,22 @@ function Pomodoro({ onNavigate }) {
                 </div>
               </div>
               <button
-                onClick={() => setAudioEnabled(!audioEnabled)}
+                onClick={() => {
+                  const newAudioEnabled = !audioEnabled;
+                  setAudioEnabled(newAudioEnabled);
+
+                  // Check if running in Chrome Extension context
+                  if (chrome?.runtime?.sendMessage) {
+                    chrome.runtime
+                      .sendMessage({
+                        type: "POMODORO_UPDATE_SETTINGS",
+                        settings: { audioEnabled: newAudioEnabled },
+                      })
+                      .catch((error) => console.error("Error updating audio setting:", error));
+                  } else {
+                    console.warn("Chrome runtime not available - running in dev mode");
+                  }
+                }}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 ${
                   audioEnabled ? "bg-white" : "bg-white/30"
                 }`}

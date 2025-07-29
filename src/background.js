@@ -1,5 +1,314 @@
-// Background script for dynamic website blocking
+// Background script for dynamic website blocking and Pomodoro timer
 /* global chrome */
+
+// =============================================================================
+// POMODORO BACKGROUND TIMER MANAGER
+// =============================================================================
+
+class BackgroundPomodoroManager {
+  constructor() {
+    this.timerId = null;
+    this.isActive = false;
+    this.isBreak = false;
+    this.currentTime = 0;
+    this.initialTime = 0;
+    this.focusTime = 25;
+    this.breakTime = 5;
+    this.sessionCount = 0;
+    this.audioEnabled = true;
+
+    this.loadState();
+  }
+
+  async loadState() {
+    try {
+      const result = await chrome.storage.local.get(["pomodoroState", "pomodoroSettings"]);
+
+      if (result.pomodoroState) {
+        const state = result.pomodoroState;
+        this.isActive = state.isActive || false;
+        this.isBreak = state.isBreak || false;
+        this.currentTime = state.currentTime || this.focusTime * 60;
+        this.initialTime = state.initialTime || this.focusTime * 60;
+        this.sessionCount = state.sessionCount || 0;
+
+        if (this.isActive) {
+          this.startTimer();
+        }
+      }
+
+      if (result.pomodoroSettings) {
+        const settings = result.pomodoroSettings;
+        this.focusTime = settings.focusTime || 25;
+        this.breakTime = settings.breakTime || 5;
+        this.audioEnabled = settings.audioEnabled !== undefined ? settings.audioEnabled : true;
+      }
+    } catch (error) {
+      console.error("Error loading pomodoro state:", error);
+    }
+  }
+
+  async saveState() {
+    try {
+      const state = {
+        isActive: this.isActive,
+        isBreak: this.isBreak,
+        currentTime: this.currentTime,
+        initialTime: this.initialTime,
+        sessionCount: this.sessionCount,
+        lastUpdated: Date.now(),
+      };
+
+      await chrome.storage.local.set({ pomodoroState: state });
+      this.notifyStateChange();
+    } catch (error) {
+      console.error("Error saving pomodoro state:", error);
+    }
+  }
+
+  notifyStateChange() {
+    chrome.runtime
+      .sendMessage({
+        type: "POMODORO_STATE_UPDATE",
+        state: this.getState(),
+      })
+      .catch(() => {});
+  }
+
+  startTimer() {
+    if (this.timerId) {
+      clearInterval(this.timerId);
+    }
+
+    this.isActive = true;
+    this.timerId = setInterval(() => {
+      this.tick();
+    }, 1000);
+
+    this.saveState();
+  }
+
+  pauseTimer() {
+    if (this.timerId) {
+      clearInterval(this.timerId);
+      this.timerId = null;
+    }
+
+    this.isActive = false;
+    this.saveState();
+  }
+
+  resetTimer() {
+    if (this.timerId) {
+      clearInterval(this.timerId);
+      this.timerId = null;
+    }
+
+    this.isActive = false;
+    this.isBreak = false;
+    this.currentTime = this.focusTime * 60;
+    this.initialTime = this.focusTime * 60;
+    this.sessionCount = 0;
+
+    this.saveState();
+  }
+
+  tick() {
+    if (this.currentTime > 0) {
+      this.currentTime--;
+      this.saveState();
+    } else {
+      this.handleTimerComplete();
+    }
+  }
+
+  async handleTimerComplete() {
+    if (this.timerId) {
+      clearInterval(this.timerId);
+      this.timerId = null;
+    }
+
+    if (!this.isBreak) {
+      this.isBreak = true;
+      this.currentTime = this.breakTime * 60;
+      this.initialTime = this.breakTime * 60;
+      this.sessionCount++;
+
+      await this.playNotification("break");
+      this.showNotification("Great job! Time for a break! 🎉", `Take a ${this.breakTime} minute break.`);
+    } else {
+      this.isBreak = false;
+      this.currentTime = this.focusTime * 60;
+      this.initialTime = this.focusTime * 60;
+
+      await this.playNotification("focus");
+      this.showNotification("Break's over! Ready to focus? 💪", `Time for a ${this.focusTime} minute focus session.`);
+    }
+
+    this.startTimer();
+  }
+
+  async playNotification(context) {
+    if (!this.audioEnabled) return;
+
+    try {
+      console.log(`Playing notification for context: ${context}`);
+
+      // Get all tabs and try to send audio message
+      const tabs = await chrome.tabs.query({});
+      let audioSent = false;
+
+      for (const tab of tabs) {
+        try {
+          await chrome.tabs.sendMessage(tab.id, {
+            type: "PLAY_POMODORO_AUDIO",
+            context: context,
+          });
+          audioSent = true;
+          console.log(`Audio message sent to tab ${tab.id}`);
+          break; // Stop after first successful send
+        } catch (error) {
+          // Tab might not have content script injected, continue to next tab
+          console.log(`Failed to send to tab ${tab.id}:`, error.message);
+        }
+      }
+
+      if (!audioSent) {
+        console.warn("No tabs available for audio playback - creating notification only");
+      }
+    } catch (error) {
+      console.error("Error playing notification:", error);
+    }
+  }
+
+  showNotification(title, body) {
+    chrome.notifications.create({
+      type: "basic",
+      iconUrl: "images/icon32.png",
+      title: title,
+      message: body,
+    });
+  }
+
+  updateSettings(settings) {
+    if (settings.focusTime !== undefined) {
+      this.focusTime = settings.focusTime;
+      if (!this.isBreak && !this.isActive) {
+        this.currentTime = this.focusTime * 60;
+        this.initialTime = this.focusTime * 60;
+      }
+    }
+
+    if (settings.breakTime !== undefined) {
+      this.breakTime = settings.breakTime;
+      if (this.isBreak && !this.isActive) {
+        this.currentTime = this.breakTime * 60;
+        this.initialTime = this.breakTime * 60;
+      }
+    }
+
+    if (settings.audioEnabled !== undefined) {
+      this.audioEnabled = settings.audioEnabled;
+    }
+
+    chrome.storage.local.set({
+      pomodoroSettings: {
+        focusTime: this.focusTime,
+        breakTime: this.breakTime,
+        audioEnabled: this.audioEnabled,
+      },
+    });
+
+    this.saveState();
+  }
+
+  getState() {
+    return {
+      isActive: this.isActive,
+      isBreak: this.isBreak,
+      currentTime: this.currentTime,
+      initialTime: this.initialTime,
+      sessionCount: this.sessionCount,
+      focusTime: this.focusTime,
+      breakTime: this.breakTime,
+      audioEnabled: this.audioEnabled,
+    };
+  }
+}
+
+// Initialize Pomodoro Manager
+const pomodoroManager = new BackgroundPomodoroManager();
+
+// Handle messages from popup
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  switch (message.type) {
+    case "POMODORO_START":
+      pomodoroManager.startTimer();
+      sendResponse({ success: true });
+      break;
+
+    case "POMODORO_PAUSE":
+      pomodoroManager.pauseTimer();
+      sendResponse({ success: true });
+      break;
+
+    case "POMODORO_RESET":
+      pomodoroManager.resetTimer();
+      sendResponse({ success: true });
+      break;
+
+    case "POMODORO_UPDATE_SETTINGS":
+      pomodoroManager.updateSettings(message.settings);
+      sendResponse({ success: true });
+      break;
+
+    case "POMODORO_GET_STATE":
+      sendResponse({ state: pomodoroManager.getState() });
+      break;
+
+    case "POMODORO_TEST_AUDIO":
+      console.log("Background received test audio request for:", message.context);
+      pomodoroManager.playNotification(message.context);
+
+      // Also try to create a new tab with audio test if no content scripts are available
+      setTimeout(async () => {
+        try {
+          const tabs = await chrome.tabs.query({});
+          let hasContentScript = false;
+
+          for (const tab of tabs) {
+            try {
+              await chrome.tabs.sendMessage(tab.id, { type: "PING" });
+              hasContentScript = true;
+              break;
+            } catch (error) {
+              // Tab doesn't have content script
+              console.log(`Tab ${tab.id} has no content script:`, error.message);
+            }
+          }
+
+          if (!hasContentScript) {
+            console.log("No content scripts found, creating audio test tab");
+            chrome.tabs.create({
+              url: chrome.runtime.getURL("simple-audio-test.html"),
+              active: false,
+            });
+          }
+        } catch (error) {
+          console.error("Error checking content scripts:", error);
+        }
+      }, 100);
+
+      sendResponse({ success: true });
+      break;
+  }
+
+  return true; // Keep message channel open for async response
+});
+
+// =============================================================================
+// WEBSITE BLOCKING FUNCTIONALITY
+// =============================================================================
 
 // Function to create proper URL patterns
 function createUrlPatterns(domain) {
