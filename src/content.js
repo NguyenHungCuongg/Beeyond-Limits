@@ -2,36 +2,111 @@
 /* global chrome */
 
 let isPageBlocked = false;
+let extensionContextValid = true;
 
 console.log("Beeyond Limits content script loaded");
 
-// Listen for messages from background script for audio playback
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log("Content script received message:", message);
+// Safe wrapper for Chrome API calls
+function safeChromeAPI(apiCall, fallback = null) {
+  if (!extensionContextValid) {
+    console.warn("Extension context invalid - skipping Chrome API call");
+    return fallback;
+  }
 
-  if (message.type === "PLAY_POMODORO_AUDIO") {
-    playPomodoroAudio(message.context)
-      .then(() => {
-        console.log("Audio playback completed successfully");
-        sendResponse({ success: true });
-      })
-      .catch((error) => {
-        console.error("Audio playback failed:", error);
-        sendResponse({ success: false, error: error.message });
-      });
-    return true; // Keep message channel open for async response
+  try {
+    return apiCall();
+  } catch (error) {
+    if (handleExtensionContextError(error)) {
+      return fallback;
+    }
+    throw error;
+  }
+}
+
+// Safe wrapper for async Chrome API calls
+async function safeChromeAPIAsync(apiCall, fallback = null) {
+  if (!extensionContextValid) {
+    console.warn("Extension context invalid - skipping async Chrome API call");
+    return fallback;
+  }
+
+  try {
+    return await apiCall();
+  } catch (error) {
+    if (handleExtensionContextError(error)) {
+      return fallback;
+    }
+    throw error;
+  }
+}
+
+// Global error handler for extension context invalidation
+function handleExtensionContextError(error) {
+  if (error.message && error.message.includes("Extension context invalidated")) {
+    console.warn("Extension context invalidated - stopping all operations");
+    extensionContextValid = false;
+    return true;
   }
   return false;
-});
+}
+
+// Listen for messages from background script for audio playback
+try {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (!extensionContextValid) {
+      sendResponse({ success: false, error: "Extension context invalidated" });
+      return false;
+    }
+
+    console.log("Content script received message:", message);
+
+    if (message.type === "PLAY_POMODORO_AUDIO") {
+      playPomodoroAudio(message.context)
+        .then(() => {
+          console.log("Audio playback completed successfully");
+          sendResponse({ success: true });
+        })
+        .catch((error) => {
+          console.error("Audio playback failed:", error);
+          if (handleExtensionContextError(error)) {
+            sendResponse({ success: false, error: "Extension context invalidated" });
+          } else {
+            sendResponse({ success: false, error: error.message });
+          }
+        });
+      return true; // Keep message channel open for async response
+    }
+    return false;
+  });
+} catch (error) {
+  console.error("Failed to register message listener:", error);
+  handleExtensionContextError(error);
+}
 
 // Audio playback function for Pomodoro
 async function playPomodoroAudio(context) {
   try {
     console.log(`Playing Pomodoro audio for context: ${context}`);
 
-    // Create audio elements with proper URLs
-    const alarmUrl = chrome.runtime.getURL("audio/pomodoro_alarm.m4a");
-    const alarmAudio = new Audio(alarmUrl);
+    // Check if extension context is still valid
+    if (!validateChromeAPI()) {
+      throw new Error("Extension context invalidated - cannot play audio");
+    }
+
+    // Create audio elements with proper URLs - wrap in try-catch
+    let alarmUrl, alarmAudio;
+    try {
+      alarmUrl = safeChromeAPI(() => chrome.runtime.getURL("audio/pomodoro_alarm.m4a"));
+      if (!alarmUrl) {
+        throw new Error("Cannot get alarm audio URL - extension context invalid");
+      }
+      alarmAudio = new Audio(alarmUrl);
+    } catch (error) {
+      if (handleExtensionContextError(error)) {
+        throw new Error("Extension context invalidated during audio URL creation");
+      }
+      throw error;
+    }
 
     console.log(`Alarm audio URL: ${alarmUrl}`);
 
@@ -74,10 +149,28 @@ function getRandomContextAudio(context) {
     return null;
   }
 
-  const randomFile = files[Math.floor(Math.random() * files.length)];
-  const audioUrl = chrome.runtime.getURL(`audio/${randomFile}`);
-  console.log(`Selected ${context} audio: ${audioUrl}`);
-  return new Audio(audioUrl);
+  // Check if extension context is still valid before creating audio
+  if (!validateChromeAPI()) {
+    console.error("Extension context invalidated - cannot create audio URL");
+    return null;
+  }
+
+  try {
+    const randomFile = files[Math.floor(Math.random() * files.length)];
+    const audioUrl = safeChromeAPI(() => chrome.runtime.getURL(`audio/${randomFile}`));
+    if (!audioUrl) {
+      console.error("Cannot get audio URL - extension context invalid");
+      return null;
+    }
+    console.log(`Selected ${context} audio: ${audioUrl}`);
+    return new Audio(audioUrl);
+  } catch (error) {
+    console.error(`Error creating audio for ${context}:`, error);
+    if (handleExtensionContextError(error)) {
+      return null;
+    }
+    return null;
+  }
 }
 
 function playAudio(audio) {
@@ -120,31 +213,72 @@ function playAudio(audio) {
 
 // Validate that we have access to chrome.storage
 function validateChromeAPI() {
-  if (typeof chrome === "undefined") {
-    console.error("Chrome API not available");
+  if (!extensionContextValid) {
     return false;
   }
-  if (!chrome.storage) {
-    console.error("Chrome storage API not available");
+
+  try {
+    if (typeof chrome === "undefined") {
+      console.error("Chrome API not available");
+      extensionContextValid = false;
+      return false;
+    }
+    if (!chrome.storage) {
+      console.error("Chrome storage API not available");
+      extensionContextValid = false;
+      return false;
+    }
+    if (!chrome.runtime || !chrome.runtime.id) {
+      console.error("Chrome runtime context invalidated");
+      extensionContextValid = false;
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("Error validating Chrome API:", error);
+    if (handleExtensionContextError(error)) {
+      extensionContextValid = false;
+    }
     return false;
   }
-  return true;
 }
 
 // Check if current page should be blocked
 async function checkAndBlockPage() {
-  if (isPageBlocked) {
+  if (isPageBlocked || !extensionContextValid) {
     return;
   }
 
   // Validate Chrome APIs first
   if (!validateChromeAPI()) {
-    console.error("Cannot access Chrome APIs - extension may not be loaded properly");
+    console.warn("Chrome APIs not available - content script may be invalidated");
     return;
   }
 
   try {
-    const { blockedUrls = [], isBlocking = false } = await chrome.storage.local.get(["blockedUrls", "isBlocking"]);
+    // Try to get Chrome Storage data with additional validation
+    let blockedUrls = [];
+    let isBlocking = false;
+
+    try {
+      const result = await safeChromeAPIAsync(() => chrome.storage.local.get(["blockedUrls", "isBlocking"]), {
+        blockedUrls: [],
+        isBlocking: false,
+      });
+      if (!result) {
+        console.warn("Chrome storage not available - extension context may be invalid");
+        return;
+      }
+      blockedUrls = result.blockedUrls || [];
+      isBlocking = result.isBlocking || false;
+    } catch (storageError) {
+      console.error("Chrome storage access failed:", storageError);
+      if (handleExtensionContextError(storageError)) {
+        return; // Extension context invalidated
+      }
+      // If not context error, just continue with empty values
+      return;
+    }
 
     if (!isBlocking || blockedUrls.length === 0) {
       return;
@@ -172,6 +306,9 @@ async function checkAndBlockPage() {
     }
   } catch (error) {
     console.error("Content script error:", error);
+    if (handleExtensionContextError(error)) {
+      return; // Stop execution if context is invalidated
+    }
   }
 }
 
@@ -281,24 +418,42 @@ function blockPageImmediately(hostname) {
 // Initialize immediately - multiple execution strategies
 
 // Strategy 1: Run immediately
-checkAndBlockPage();
+if (extensionContextValid) {
+  checkAndBlockPage().catch((error) => handleExtensionContextError(error));
+}
 
 // Strategy 2: Run when DOM is ready
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", checkAndBlockPage);
+  document.addEventListener("DOMContentLoaded", () => {
+    if (extensionContextValid) {
+      checkAndBlockPage().catch((error) => handleExtensionContextError(error));
+    }
+  });
 } else {
   // DOM already loaded, run again
-  setTimeout(checkAndBlockPage, 10);
+  setTimeout(() => {
+    if (extensionContextValid) {
+      checkAndBlockPage().catch((error) => handleExtensionContextError(error));
+    }
+  }, 10);
 }
 
 // Strategy 3: Run on window load
-window.addEventListener("load", checkAndBlockPage);
+window.addEventListener("load", () => {
+  if (extensionContextValid) {
+    checkAndBlockPage().catch((error) => handleExtensionContextError(error));
+  }
+});
 
 // Strategy 4: Monitor DOM changes for SPAs
-if (!isPageBlocked) {
+if (!isPageBlocked && extensionContextValid) {
   const observer = new MutationObserver(() => {
-    if (!isPageBlocked) {
-      checkAndBlockPage();
+    if (!isPageBlocked && extensionContextValid) {
+      checkAndBlockPage().catch((error) => {
+        if (handleExtensionContextError(error)) {
+          observer.disconnect();
+        }
+      });
     }
   });
 
@@ -309,7 +464,7 @@ if (!isPageBlocked) {
 
   // Cleanup observer after blocking
   setTimeout(() => {
-    if (isPageBlocked) {
+    if (isPageBlocked || !extensionContextValid) {
       observer.disconnect();
     }
   }, 1000);
@@ -317,11 +472,32 @@ if (!isPageBlocked) {
 
 // Strategy 5: Regular interval check (backup)
 const intervalCheck = setInterval(() => {
-  if (isPageBlocked) {
+  if (isPageBlocked || !extensionContextValid) {
     clearInterval(intervalCheck);
     return;
   }
-  checkAndBlockPage();
+
+  try {
+    // Check if extension context is still valid
+    if (!validateChromeAPI()) {
+      console.warn("Extension context invalidated, stopping interval check");
+      clearInterval(intervalCheck);
+      return;
+    }
+
+    checkAndBlockPage().catch((error) => {
+      console.error("Error during interval check:", error);
+      if (handleExtensionContextError(error)) {
+        console.warn("Extension context invalidated during check, stopping interval");
+        clearInterval(intervalCheck);
+      }
+    });
+  } catch (error) {
+    console.error("Error in interval check:", error);
+    if (handleExtensionContextError(error)) {
+      clearInterval(intervalCheck);
+    }
+  }
 }, 500);
 
 // Clear interval after 10 seconds to avoid infinite checking

@@ -153,11 +153,22 @@ function Pomodoro({ onNavigate }) {
         const progressPercent =
           state.initialTime > 0 ? ((state.initialTime - state.currentTime) / state.initialTime) * 100 : 0;
         setProgress(progressPercent);
+      } else {
+        // If no background state exists, ensure timer shows default focus time
+        if (currentTime === 0 && !isActive) {
+          setCurrentTime(focusTime * 60);
+          initialTimeRef.current = focusTime * 60;
+        }
       }
     } catch (error) {
       console.error("Error syncing with background timer:", error);
+      // On error, ensure timer shows default focus time if it's at 0
+      if (currentTime === 0 && !isActive) {
+        setCurrentTime(focusTime * 60);
+        initialTimeRef.current = focusTime * 60;
+      }
     }
-  }, []);
+  }, [currentTime, isActive, focusTime]);
 
   // Listen for state updates from background
   useEffect(() => {
@@ -198,6 +209,16 @@ function Pomodoro({ onNavigate }) {
       clearInterval(syncInterval);
     };
   }, [syncWithBackground]);
+
+  // Ensure timer shows correct initial value on first load
+  useEffect(() => {
+    // If we're not syncing with background (no chrome runtime) or timer is at 0
+    if (currentTime === 0 && !isActive) {
+      const initialTime = isBreak ? breakTime * 60 : focusTime * 60;
+      setCurrentTime(initialTime);
+      initialTimeRef.current = initialTime;
+    }
+  }, [currentTime, isActive, isBreak, focusTime, breakTime]);
 
   // Handler functions for timer controls
   const handleStart = useCallback(async () => {
@@ -276,40 +297,62 @@ function Pomodoro({ onNavigate }) {
   }, []);
 
   // Handle focus time change
-  const handleFocusTimeChange = useCallback((newFocusTime) => {
-    setFocusTime(newFocusTime);
+  const handleFocusTimeChange = useCallback(
+    (newFocusTime) => {
+      setFocusTime(newFocusTime);
 
-    // Check if running in Chrome Extension context
-    if (!chrome?.runtime?.sendMessage) {
-      console.warn("Chrome runtime not available - running in dev mode");
-      return;
-    }
+      // Update current time if we're in focus mode and not active
+      if (!isBreak && !isActive) {
+        const newTime = newFocusTime * 60;
+        setCurrentTime(newTime);
+        initialTimeRef.current = newTime;
+        setProgress(0);
+      }
 
-    chrome.runtime
-      .sendMessage({
-        type: "POMODORO_UPDATE_SETTINGS",
-        settings: { focusTime: newFocusTime },
-      })
-      .catch((error) => console.error("Error updating focus time:", error));
-  }, []);
+      // Check if running in Chrome Extension context
+      if (!chrome?.runtime?.sendMessage) {
+        console.warn("Chrome runtime not available - running in dev mode");
+        return;
+      }
+
+      chrome.runtime
+        .sendMessage({
+          type: "POMODORO_UPDATE_SETTINGS",
+          settings: { focusTime: newFocusTime },
+        })
+        .catch((error) => console.error("Error updating focus time:", error));
+    },
+    [isBreak, isActive]
+  );
 
   // Handle break time change
-  const handleBreakTimeChange = useCallback((newBreakTime) => {
-    setBreakTime(newBreakTime);
+  const handleBreakTimeChange = useCallback(
+    (newBreakTime) => {
+      setBreakTime(newBreakTime);
 
-    // Check if running in Chrome Extension context
-    if (!chrome?.runtime?.sendMessage) {
-      console.warn("Chrome runtime not available - running in dev mode");
-      return;
-    }
+      // Update current time if we're in break mode and not active
+      if (isBreak && !isActive) {
+        const newTime = newBreakTime * 60;
+        setCurrentTime(newTime);
+        initialTimeRef.current = newTime;
+        setProgress(0);
+      }
 
-    chrome.runtime
-      .sendMessage({
-        type: "POMODORO_UPDATE_SETTINGS",
-        settings: { breakTime: newBreakTime },
-      })
-      .catch((error) => console.error("Error updating break time:", error));
-  }, []);
+      // Check if running in Chrome Extension context
+      if (!chrome?.runtime?.sendMessage) {
+        console.warn("Chrome runtime not available - running in dev mode");
+        return;
+      }
+
+      chrome.runtime
+        .sendMessage({
+          type: "POMODORO_UPDATE_SETTINGS",
+          settings: { breakTime: newBreakTime },
+        })
+        .catch((error) => console.error("Error updating break time:", error));
+    },
+    [isBreak, isActive]
+  );
 
   return (
     <div className="h-full bg-gradient-to-br from-red-500 via-orange-500 to-red-600 font-primary overflow-auto">
