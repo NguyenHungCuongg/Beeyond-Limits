@@ -3,6 +3,7 @@
 
 let isPageBlocked = false;
 let extensionContextValid = true;
+let ambientSounds = new Map(); // Store active ambient audio objects
 
 console.log("Beeyond Limits content script loaded");
 
@@ -76,6 +77,43 @@ try {
         });
       return true; // Keep message channel open for async response
     }
+
+    // Ambient Sound Handlers
+    if (message.type === "START_AMBIENT_SOUND") {
+      console.log("Content script received START_AMBIENT_SOUND:", message);
+      startAmbientSound(message.soundKey, message.audioUrl, message.volume);
+      sendResponse({ success: true });
+      return false;
+    }
+
+    if (message.type === "STOP_AMBIENT_SOUND") {
+      console.log("Content script received STOP_AMBIENT_SOUND:", message);
+      stopAmbientSound(message.soundKey);
+      sendResponse({ success: true });
+      return false;
+    }
+
+    if (message.type === "UPDATE_AMBIENT_VOLUME") {
+      console.log("Content script received UPDATE_AMBIENT_VOLUME:", message);
+      updateAmbientVolume(message.soundKey, message.volume);
+      sendResponse({ success: true });
+      return false;
+    }
+
+    if (message.type === "STOP_ALL_AMBIENT_SOUNDS") {
+      console.log("Content script received STOP_ALL_AMBIENT_SOUNDS");
+      stopAllAmbientSounds();
+      sendResponse({ success: true });
+      return false;
+    }
+
+    if (message.type === "TEST_AMBIENT_SOUND") {
+      console.log("Content script received TEST_AMBIENT_SOUND:", message);
+      testAmbientSound(message.soundKey, message.audioUrl, message.volume);
+      sendResponse({ success: true });
+      return false;
+    }
+
     return false;
   });
 } catch (error) {
@@ -209,6 +247,160 @@ function playAudio(audio) {
     // Start loading the audio
     audio.load();
   });
+}
+
+// =============================================================================
+// AMBIENT SOUND FUNCTIONS
+// =============================================================================
+
+function startAmbientSound(soundKey, audioUrl, volume) {
+  try {
+    console.log(`Starting ambient sound: ${soundKey} at volume ${volume} from ${audioUrl}`);
+
+    // Stop existing sound if any
+    stopAmbientSound(soundKey);
+
+    // Create new audio element
+    const audio = new Audio(audioUrl);
+    audio.loop = true; // Loop ambient sounds
+    audio.volume = volume;
+    audio.preload = "auto";
+
+    // Store in ambient sounds map
+    ambientSounds.set(soundKey, audio);
+
+    // Try to start playing with multiple strategies
+    const playPromise = audio.play();
+
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          console.log(`Ambient sound ${soundKey} started successfully`);
+        })
+        .catch((error) => {
+          console.warn(`Ambient sound ${soundKey} autoplay blocked:`, error);
+
+          // Try to overcome autoplay restrictions
+          // Set up event listener for when user interacts with page
+          const enableAudio = () => {
+            audio
+              .play()
+              .then(() => {
+                console.log(`Ambient sound ${soundKey} started after user interaction`);
+                document.removeEventListener("click", enableAudio);
+                document.removeEventListener("keydown", enableAudio);
+              })
+              .catch((err) => console.error("Failed to play after interaction:", err));
+          };
+
+          document.addEventListener("click", enableAudio, { once: true });
+          document.addEventListener("keydown", enableAudio, { once: true });
+        });
+    }
+
+    console.log(`Ambient sound ${soundKey} setup complete`);
+  } catch (error) {
+    console.error(`Error starting ambient sound ${soundKey}:`, error);
+  }
+}
+
+function stopAmbientSound(soundKey) {
+  try {
+    console.log(`Stopping ambient sound: ${soundKey}`);
+
+    const audio = ambientSounds.get(soundKey);
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+      ambientSounds.delete(soundKey);
+      console.log(`Ambient sound ${soundKey} stopped`);
+    }
+  } catch (error) {
+    console.error(`Error stopping ambient sound ${soundKey}:`, error);
+  }
+}
+
+function updateAmbientVolume(soundKey, volume) {
+  try {
+    console.log(`Updating volume for ${soundKey}: ${volume}`);
+
+    const audio = ambientSounds.get(soundKey);
+    if (audio) {
+      audio.volume = volume;
+      console.log(`Volume updated for ${soundKey}`);
+    }
+  } catch (error) {
+    console.error(`Error updating volume for ${soundKey}:`, error);
+  }
+}
+
+function stopAllAmbientSounds() {
+  try {
+    console.log("Stopping all ambient sounds");
+
+    for (const [_soundKey, audio] of ambientSounds) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+
+    ambientSounds.clear();
+    console.log("All ambient sounds stopped");
+  } catch (error) {
+    console.error("Error stopping all ambient sounds:", error);
+  }
+}
+
+function testAmbientSound(soundKey, audioUrl, volume) {
+  try {
+    console.log(`Testing ambient sound: ${soundKey} at volume ${volume} from ${audioUrl}`);
+
+    // Create temporary audio for testing (non-looping)
+    const audio = new Audio(audioUrl);
+    audio.volume = volume;
+
+    // Add event listeners for debugging
+    audio.addEventListener("loadstart", () => console.log(`Test ${soundKey}: Load started`));
+    audio.addEventListener("loadeddata", () => console.log(`Test ${soundKey}: Data loaded`));
+    audio.addEventListener("canplay", () => console.log(`Test ${soundKey}: Can play`));
+    audio.addEventListener("play", () => console.log(`Test ${soundKey}: Playing`));
+    audio.addEventListener("error", (e) => console.error(`Test ${soundKey} error:`, e));
+
+    // Try to play
+    const playPromise = audio.play();
+
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          console.log(`Test sound ${soundKey} playing successfully`);
+        })
+        .catch((error) => {
+          console.warn(`Test sound ${soundKey} autoplay blocked:`, error);
+
+          // Try again with user interaction
+          const playOnClick = () => {
+            audio
+              .play()
+              .then(() => {
+                console.log(`Test sound ${soundKey} started after user interaction`);
+              })
+              .catch((err) => console.error("Test failed after interaction:", err));
+            document.removeEventListener("click", playOnClick);
+          };
+
+          document.addEventListener("click", playOnClick, { once: true });
+          console.log(`Test sound ${soundKey} waiting for user interaction...`);
+        });
+    }
+
+    // Stop after 3 seconds
+    setTimeout(() => {
+      audio.pause();
+      audio.currentTime = 0;
+      console.log(`Test sound ${soundKey} stopped`);
+    }, 3000);
+  } catch (error) {
+    console.error(`Error testing ambient sound ${soundKey}:`, error);
+  }
 }
 
 // Validate that we have access to chrome.storage

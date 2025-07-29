@@ -271,6 +271,242 @@ class BackgroundPomodoroManager {
   }
 }
 
+// =============================================================================
+// AMBIENT SOUND MANAGER
+// =============================================================================
+
+class AmbientSoundManager {
+  constructor() {
+    this.activeSounds = new Map(); // Store active audio objects
+    this.offscreenReady = false;
+    this.settings = {
+      bird: { enabled: false, volume: 50 },
+      campfire: { enabled: false, volume: 50 },
+      ocean_waves: { enabled: false, volume: 50 },
+      rain: { enabled: false, volume: 50 },
+      thunder: { enabled: false, volume: 50 },
+      wind: { enabled: false, volume: 50 },
+    };
+    this.loadSettings();
+    this.initOffscreen();
+  }
+
+  async initOffscreen() {
+    try {
+      // Check if offscreen document already exists
+      const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: ["OFFSCREEN_DOCUMENT"],
+      });
+
+      if (existingContexts.length > 0) {
+        console.log("Offscreen document already exists");
+        this.offscreenReady = true;
+        return;
+      }
+
+      // Create offscreen document
+      await chrome.offscreen.createDocument({
+        url: "src/offscreen.html",
+        reasons: ["AUDIO_PLAYBACK"],
+        justification: "Playing ambient sounds for productivity focus",
+      });
+
+      console.log("Offscreen document created successfully");
+      this.offscreenReady = true;
+    } catch (error) {
+      console.error("Error creating offscreen document:", error);
+      this.offscreenReady = false;
+    }
+  }
+
+  async ensureOffscreen() {
+    if (!this.offscreenReady) {
+      await this.initOffscreen();
+    }
+    return this.offscreenReady;
+  }
+
+  async loadSettings() {
+    try {
+      const result = await chrome.storage.local.get(["ambientSettings"]);
+      if (result.ambientSettings) {
+        this.settings = { ...this.settings, ...result.ambientSettings };
+        console.log("Loaded ambient settings:", this.settings);
+
+        // Start enabled sounds
+        Object.entries(this.settings).forEach(([key, setting]) => {
+          if (setting.enabled) {
+            this.startSound(key, setting.volume);
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error loading ambient settings:", error);
+    }
+  }
+
+  async saveSettings(newSettings) {
+    try {
+      this.settings = { ...this.settings, ...newSettings };
+      await chrome.storage.local.set({ ambientSettings: this.settings });
+      console.log("Saved ambient settings:", this.settings);
+    } catch (error) {
+      console.error("Error saving ambient settings:", error);
+    }
+  }
+
+  updateSettings(newSettings) {
+    console.log("Updating ambient settings:", newSettings);
+    console.log("Current settings before update:", this.settings);
+
+    // Stop sounds that are being disabled
+    Object.entries(newSettings).forEach(([key, setting]) => {
+      const currentSetting = this.settings[key];
+      console.log(`Processing ${key}: current=${JSON.stringify(currentSetting)}, new=${JSON.stringify(setting)}`);
+
+      if (currentSetting?.enabled && !setting.enabled) {
+        console.log(`Stopping sound ${key} (disabled)`);
+        this.stopSound(key);
+      } else if (!currentSetting?.enabled && setting.enabled) {
+        console.log(`Starting sound ${key} (enabled) with volume ${setting.volume}`);
+        this.startSound(key, setting.volume);
+      } else if (setting.enabled && currentSetting?.volume !== setting.volume) {
+        console.log(`Updating volume for ${key} from ${currentSetting?.volume} to ${setting.volume}`);
+        this.updateVolume(key, setting.volume);
+      }
+    });
+
+    this.saveSettings(newSettings);
+  }
+
+  async startSound(soundKey, volume = 50) {
+    try {
+      // Ensure offscreen document is ready
+      const ready = await this.ensureOffscreen();
+      if (!ready) {
+        console.error("Offscreen document not available");
+        return;
+      }
+
+      // Stop existing sound if any
+      this.stopSound(soundKey);
+
+      // All audio files are now .m4a format
+      const audioUrl = chrome.runtime.getURL(`audio/${soundKey}.m4a`);
+      console.log(`Starting ambient sound: ${soundKey} at ${audioUrl} with volume ${volume}%`);
+
+      // Send to offscreen document
+      try {
+        await chrome.runtime.sendMessage({
+          type: "START_AMBIENT_SOUND",
+          soundKey: soundKey,
+          audioUrl: audioUrl,
+          volume: volume / 100, // Convert to 0-1 range
+        });
+        console.log(`Ambient sound ${soundKey} started in offscreen document`);
+      } catch (error) {
+        console.error(`Failed to start sound in offscreen document:`, error);
+      }
+    } catch (error) {
+      console.error(`Error starting ambient sound ${soundKey}:`, error);
+    }
+  }
+
+  async stopSound(soundKey) {
+    try {
+      console.log(`Stopping ambient sound: ${soundKey}`);
+
+      // Send stop message to offscreen document
+      const ready = await this.ensureOffscreen();
+      if (ready) {
+        try {
+          await chrome.runtime.sendMessage({
+            type: "STOP_AMBIENT_SOUND",
+            soundKey: soundKey,
+          });
+        } catch (error) {
+          console.error(`Failed to stop sound in offscreen document:`, error);
+        }
+      }
+    } catch (error) {
+      console.error(`Error stopping ambient sound ${soundKey}:`, error);
+    }
+  }
+
+  async updateVolume(soundKey, volume) {
+    try {
+      console.log(`Updating volume for ${soundKey}: ${volume}%`);
+
+      // Send volume update to offscreen document
+      const ready = await this.ensureOffscreen();
+      if (ready) {
+        try {
+          await chrome.runtime.sendMessage({
+            type: "UPDATE_AMBIENT_VOLUME",
+            soundKey: soundKey,
+            volume: volume / 100, // Convert to 0-1 range
+          });
+        } catch (error) {
+          console.error(`Failed to update volume in offscreen document:`, error);
+        }
+      }
+    } catch (error) {
+      console.error(`Error updating volume for ${soundKey}:`, error);
+    }
+  }
+
+  async stopAllSounds() {
+    try {
+      console.log("Stopping all ambient sounds");
+
+      // Send stop all message to offscreen document
+      const ready = await this.ensureOffscreen();
+      if (ready) {
+        try {
+          await chrome.runtime.sendMessage({
+            type: "STOP_ALL_AMBIENT_SOUNDS",
+          });
+        } catch (error) {
+          console.error(`Failed to stop all sounds in offscreen document:`, error);
+        }
+      }
+    } catch (error) {
+      console.error("Error stopping all ambient sounds:", error);
+    }
+  }
+
+  async testSound(soundKey, volume = 50) {
+    try {
+      console.log(`Testing ambient sound: ${soundKey} with volume ${volume}%`);
+
+      // All audio files are now .m4a format
+      const audioUrl = chrome.runtime.getURL(`audio/${soundKey}.m4a`);
+      console.log(`Test sound URL: ${audioUrl}`);
+
+      // Send test message to offscreen document
+      const ready = await this.ensureOffscreen();
+      if (ready) {
+        try {
+          await chrome.runtime.sendMessage({
+            type: "TEST_AMBIENT_SOUND",
+            soundKey: soundKey,
+            audioUrl: audioUrl,
+            volume: volume / 100,
+          });
+          console.log(`Test sound ${soundKey} sent to offscreen document`);
+        } catch (error) {
+          console.error(`Failed to test sound in offscreen document:`, error);
+        }
+      }
+    } catch (error) {
+      console.error(`Error testing ambient sound ${soundKey}:`, error);
+    }
+  }
+}
+
+// Initialize Ambient Sound Manager
+const ambientManager = new AmbientSoundManager();
+
 // Initialize Pomodoro Manager
 const pomodoroManager = new BackgroundPomodoroManager();
 
@@ -334,6 +570,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
       }, 100);
 
+      sendResponse({ success: true });
+      break;
+
+    case "AMBIENT_UPDATE_SETTINGS":
+      ambientManager.updateSettings(message.settings);
+      sendResponse({ success: true });
+      break;
+
+    case "AMBIENT_TEST_SOUND":
+      ambientManager.testSound(message.soundKey, message.volume);
+      sendResponse({ success: true });
+      break;
+
+    case "AMBIENT_STOP_ALL":
+      ambientManager.stopAllSounds();
       sendResponse({ success: true });
       break;
   }

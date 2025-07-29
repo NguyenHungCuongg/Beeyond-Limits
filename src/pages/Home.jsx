@@ -65,7 +65,10 @@ function Home({ onNavigate }) {
           </div>
 
           {/* Ambient Sound */}
-          <div className="group bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer border border-white/20">
+          <div
+            onClick={() => onNavigate("ambientsounds")}
+            className="group bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer border border-white/20"
+          >
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform duration-300">
                 🎵
