@@ -32,9 +32,25 @@ class BackgroundPomodoroManager {
         this.initialTime = state.initialTime || this.focusTime * 60;
         this.sessionCount = state.sessionCount || 0;
 
-        if (this.isActive) {
+        console.log("Loaded pomodoro state:", state);
+
+        // Only restart timer if it was active
+        if (this.isActive && this.currentTime > 0) {
+          console.log("Restarting timer from saved state");
           this.startTimer();
+        } else if (this.currentTime === 0 && this.isActive) {
+          // If timer was at 0 but active, it might have been stuck
+          console.log("Timer was stuck at 0, resetting...");
+          this.isActive = false;
+          this.currentTime = this.isBreak ? this.breakTime * 60 : this.focusTime * 60;
+          this.initialTime = this.currentTime;
+          this.saveState();
         }
+      } else {
+        // No saved state, initialize with default focus time
+        this.currentTime = this.focusTime * 60;
+        this.initialTime = this.focusTime * 60;
+        console.log("No saved state, initialized with default values");
       }
 
       if (result.pomodoroSettings) {
@@ -42,6 +58,7 @@ class BackgroundPomodoroManager {
         this.focusTime = settings.focusTime || 25;
         this.breakTime = settings.breakTime || 5;
         this.audioEnabled = settings.audioEnabled !== undefined ? settings.audioEnabled : true;
+        console.log("Loaded pomodoro settings:", settings);
       }
     } catch (error) {
       console.error("Error loading pomodoro state:", error);
@@ -76,6 +93,8 @@ class BackgroundPomodoroManager {
   }
 
   startTimer() {
+    console.log("Starting timer:", { isBreak: this.isBreak, currentTime: this.currentTime });
+
     if (this.timerId) {
       clearInterval(this.timerId);
     }
@@ -86,6 +105,7 @@ class BackgroundPomodoroManager {
     }, 1000);
 
     this.saveState();
+    console.log("Timer started successfully, isActive:", this.isActive);
   }
 
   pauseTimer() {
@@ -118,17 +138,25 @@ class BackgroundPomodoroManager {
       this.currentTime--;
       this.saveState();
     } else {
+      console.log("Timer reached 0, handling completion...");
       this.handleTimerComplete();
     }
   }
 
   async handleTimerComplete() {
+    console.log("Timer completed! Current state:", { isBreak: this.isBreak, currentTime: this.currentTime });
+
     if (this.timerId) {
       clearInterval(this.timerId);
       this.timerId = null;
     }
 
+    // Set inactive temporarily
+    this.isActive = false;
+
     if (!this.isBreak) {
+      // Focus time completed, switch to break
+      console.log("Focus time completed, switching to break");
       this.isBreak = true;
       this.currentTime = this.breakTime * 60;
       this.initialTime = this.breakTime * 60;
@@ -137,6 +165,8 @@ class BackgroundPomodoroManager {
       await this.playNotification("break");
       this.showNotification("Great job! Time for a break! 🎉", `Take a ${this.breakTime} minute break.`);
     } else {
+      // Break time completed, switch to focus
+      console.log("Break time completed, switching to focus");
       this.isBreak = false;
       this.currentTime = this.focusTime * 60;
       this.initialTime = this.focusTime * 60;
@@ -145,6 +175,11 @@ class BackgroundPomodoroManager {
       this.showNotification("Break's over! Ready to focus? 💪", `Time for a ${this.focusTime} minute focus session.`);
     }
 
+    // Save state first, then restart timer
+    await this.saveState();
+
+    // Auto-start the next timer
+    console.log("Auto-starting next timer phase:", { isBreak: this.isBreak, currentTime: this.currentTime });
     this.startTimer();
   }
 
