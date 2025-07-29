@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Timer from "../components/Timer";
 import NumberSlider from "../components/NumberSlider";
+import SessionStats from "../components/SessionStats";
+import AudioControl from "../components/AudioControl";
 
 /* global chrome */
 
@@ -354,6 +356,24 @@ function Pomodoro({ onNavigate }) {
     [isBreak, isActive]
   );
 
+  // Handle audio toggle
+  const handleAudioToggle = useCallback(() => {
+    const newAudioEnabled = !audioEnabled;
+    setAudioEnabled(newAudioEnabled);
+
+    // Check if running in Chrome Extension context
+    if (chrome?.runtime?.sendMessage) {
+      chrome.runtime
+        .sendMessage({
+          type: "POMODORO_UPDATE_SETTINGS",
+          settings: { audioEnabled: newAudioEnabled },
+        })
+        .catch((error) => console.error("Error updating audio setting:", error));
+    } else {
+      console.warn("Chrome runtime not available - running in dev mode");
+    }
+  }, [audioEnabled]);
+
   return (
     <div className="h-full bg-gradient-to-br from-red-500 via-orange-500 to-red-600 font-primary overflow-auto">
       <div className="p-6">
@@ -421,74 +441,11 @@ function Pomodoro({ onNavigate }) {
           />
 
           {/* Audio Control */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center space-x-3">
-                <div className="text-white text-xl">🔊</div>
-                <div>
-                  <div className="font-medium text-white">Audio Notifications</div>
-                  <div className="text-xs text-white/70">Play sounds when switching modes</div>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  const newAudioEnabled = !audioEnabled;
-                  setAudioEnabled(newAudioEnabled);
-
-                  // Check if running in Chrome Extension context
-                  if (chrome?.runtime?.sendMessage) {
-                    chrome.runtime
-                      .sendMessage({
-                        type: "POMODORO_UPDATE_SETTINGS",
-                        settings: { audioEnabled: newAudioEnabled },
-                      })
-                      .catch((error) => console.error("Error updating audio setting:", error));
-                  } else {
-                    console.warn("Chrome runtime not available - running in dev mode");
-                  }
-                }}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 ${
-                  audioEnabled ? "bg-white" : "bg-white/30"
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-red-500 transition ${
-                    audioEnabled ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
-            {audioEnabled && (
-              <button
-                onClick={handleTestAudio}
-                className="w-full bg-white/20 backdrop-blur-sm text-white text-sm font-medium py-2 rounded-lg border border-white/30 hover:bg-white/30 transition-colors"
-              >
-                🎵 Test Audio
-              </button>
-            )}
-          </div>
+          <AudioControl audioEnabled={audioEnabled} onAudioToggle={handleAudioToggle} onTestAudio={handleTestAudio} />
         </div>
 
         {/* Session Stats */}
-        <div className="mb-6 bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-          <div className="text-center text-white">
-            <div className="text-sm opacity-80 mb-1">Current Session</div>
-            <div className="flex justify-center space-x-6">
-              <div>
-                <div className="font-bold text-lg">{sessionCount}</div>
-                <div className="text-xs opacity-70">Completed</div>
-              </div>
-              <div>
-                <div className="font-bold text-lg">{isBreak ? "Break" : "Focus"}</div>
-                <div className="text-xs opacity-70">Mode</div>
-              </div>
-              <div>
-                <div className="font-bold text-lg">{Math.ceil(currentTime / 60)}</div>
-                <div className="text-xs opacity-70">Min Left</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <SessionStats sessionCount={sessionCount} isBreak={isBreak} currentTime={currentTime} />
 
         {/* Control Buttons */}
         <div className="space-y-3">
