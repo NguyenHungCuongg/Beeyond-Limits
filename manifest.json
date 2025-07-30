@@ -16,7 +16,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["audio/*.m4a", "audio/*.mp3", "audio/*.wav", "simple-audio-test.html"],
+      "resources": ["audio/*.m4a", "audio/*.mp3", "audio/*.wav", "quotes.json", "simple-audio-test.html"],
       "matches": ["<all_urls>"]
     }
   ],

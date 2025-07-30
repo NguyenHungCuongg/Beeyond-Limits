@@ -1,4 +1,5 @@
 import React from "react";
+import DailyQuote from "../components/DailyQuote";
 
 function Home({ onNavigate }) {
   return (
@@ -82,24 +83,9 @@ function Home({ onNavigate }) {
           </div>
         </div>
 
-        {/* Footer Stats */}
-        <div className="mt-6 bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30">
-          <div className="flex justify-between items-center text-white">
-            <div className="text-center flex-1">
-              <div className="text-lg font-bold">12</div>
-              <div className="text-xs opacity-80">Tasks Done</div>
-            </div>
-            <div className="w-px h-8 bg-white/30"></div>
-            <div className="text-center flex-1">
-              <div className="text-lg font-bold">2h 30m</div>
-              <div className="text-xs opacity-80">Focus Time</div>
-            </div>
-            <div className="w-px h-8 bg-white/30"></div>
-            <div className="text-center flex-1">
-              <div className="text-lg font-bold">5🔥</div>
-              <div className="text-xs opacity-80">Day Streak</div>
-            </div>
-          </div>
+        {/* Daily Quotes */}
+        <div className="mt-8">
+          <DailyQuote />
         </div>
       </div>
     </div>

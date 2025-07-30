@@ -231,23 +231,6 @@ function AmbientSounds({ onNavigate }) {
 
         {/* Control Buttons */}
         <div className="space-y-3">
-          {/* Debug Test Button */}
-          <button
-            onClick={() => {
-              console.log("Debug: Testing direct audio...");
-              const audio = new Audio(chrome.runtime.getURL("audio/rain.m4a"));
-              audio.volume = 0.3;
-              audio.loop = true;
-              audio
-                .play()
-                .then(() => console.log("Debug: Direct audio playing"))
-                .catch((e) => console.error("Debug: Direct audio failed", e));
-            }}
-            className="w-full bg-yellow-500/20 backdrop-blur-sm text-white font-bold py-3 rounded-xl border-2 border-yellow-400/50 hover:bg-yellow-500/30 transition-all duration-300"
-          >
-            🔧 Debug: Test Direct Audio
-          </button>
-
           <button
             onClick={stopAllSounds}
             className="w-full bg-white/20 backdrop-blur-sm text-white font-bold py-4 rounded-xl border-2 border-white/30 hover:bg-white/30 transition-all duration-300"
