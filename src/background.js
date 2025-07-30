@@ -293,16 +293,20 @@ class AmbientSoundManager {
 
   async initOffscreen() {
     try {
+      console.log("=== INITIALIZING OFFSCREEN DOCUMENT ===");
+
       // Check if offscreen document already exists
       const existingContexts = await chrome.runtime.getContexts({
         contextTypes: ["OFFSCREEN_DOCUMENT"],
       });
 
       if (existingContexts.length > 0) {
-        console.log("Offscreen document already exists");
+        console.log("Offscreen document already exists, count:", existingContexts.length);
         this.offscreenReady = true;
         return;
       }
+
+      console.log("Creating new offscreen document...");
 
       // Create offscreen document
       await chrome.offscreen.createDocument({
@@ -313,16 +317,89 @@ class AmbientSoundManager {
 
       console.log("Offscreen document created successfully");
       this.offscreenReady = true;
+
+      // Wait longer for offscreen document to fully load
+      await this.verifyOffscreenReady();
     } catch (error) {
       console.error("Error creating offscreen document:", error);
       this.offscreenReady = false;
     }
   }
 
+  async verifyOffscreenReady() {
+    console.log("=== VERIFYING OFFSCREEN DOCUMENT ===");
+
+    // Try multiple times with increasing delays
+    const maxRetries = 5;
+    for (let i = 0; i < maxRetries; i++) {
+      const delay = 1000 + i * 1000; // 1s, 2s, 3s, 4s, 5s
+
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
+      try {
+        console.log(`Ping attempt ${i + 1}/${maxRetries} after ${delay}ms delay...`);
+
+        const response = await chrome.runtime.sendMessage({
+          type: "PING_OFFSCREEN",
+          target: "offscreen",
+        });
+
+        console.log("✅ Offscreen document ping successful:", response);
+        this.offscreenReady = true;
+        return;
+      } catch (error) {
+        console.warn(`❌ Ping attempt ${i + 1} failed:`, error.message);
+
+        // Check if document exists in contexts
+        try {
+          const contexts = await chrome.runtime.getContexts({
+            contextTypes: ["OFFSCREEN_DOCUMENT"],
+          });
+          console.log(`Available offscreen contexts: ${contexts.length}`);
+
+          if (contexts.length === 0) {
+            console.error("No offscreen document found in contexts!");
+            this.offscreenReady = false;
+            return;
+          }
+        } catch (contextError) {
+          console.error("Error checking contexts:", contextError);
+        }
+      }
+    }
+
+    console.error("❌ Failed to verify offscreen document after all retries");
+    this.offscreenReady = false;
+  }
   async ensureOffscreen() {
+    console.log("=== ENSURING OFFSCREEN IS READY ===");
+    console.log("Current offscreenReady status:", this.offscreenReady);
+
     if (!this.offscreenReady) {
+      console.log("Offscreen not ready, reinitializing...");
       await this.initOffscreen();
     }
+
+    // Double-check with a quick ping
+    if (this.offscreenReady) {
+      try {
+        const response = await chrome.runtime.sendMessage({
+          type: "PING_OFFSCREEN",
+          target: "offscreen",
+        });
+        console.log("Quick ping successful:", response);
+        return true;
+      } catch (error) {
+        console.warn("Quick ping failed, marking as not ready:", error.message);
+        this.offscreenReady = false;
+
+        // Try one more time
+        console.log("Attempting to reinitialize offscreen...");
+        await this.initOffscreen();
+      }
+    }
+
+    console.log("Final offscreenReady status:", this.offscreenReady);
     return this.offscreenReady;
   }
 
@@ -381,34 +458,64 @@ class AmbientSoundManager {
 
   async startSound(soundKey, volume = 50) {
     try {
+      console.log(`=== STARTING SOUND: ${soundKey} ===`);
+
       // Ensure offscreen document is ready
       const ready = await this.ensureOffscreen();
       if (!ready) {
-        console.error("Offscreen document not available");
+        console.error("❌ Offscreen document not available, cannot start sound");
         return;
       }
 
-      // Stop existing sound if any
-      this.stopSound(soundKey);
+      console.log("✅ Offscreen document ready, proceeding with sound start");
+
+      // Don't stop existing sound here - let offscreen handle it
+      // this.stopSound(soundKey);
 
       // All audio files are now .m4a format
       const audioUrl = chrome.runtime.getURL(`audio/${soundKey}.m4a`);
       console.log(`Starting ambient sound: ${soundKey} at ${audioUrl} with volume ${volume}%`);
 
-      // Send to offscreen document
-      try {
-        await chrome.runtime.sendMessage({
-          type: "START_AMBIENT_SOUND",
-          soundKey: soundKey,
-          audioUrl: audioUrl,
-          volume: volume / 100, // Convert to 0-1 range
-        });
-        console.log(`Ambient sound ${soundKey} started in offscreen document`);
-      } catch (error) {
-        console.error(`Failed to start sound in offscreen document:`, error);
-      }
+      // Send to offscreen document with retry logic
+      console.log(`Sending START message to offscreen...`);
+
+      const message = {
+        type: "START_AMBIENT_SOUND",
+        soundKey: soundKey,
+        audioUrl: audioUrl,
+        volume: volume / 100, // Convert to 0-1 range
+        target: "offscreen",
+      };
+
+      const response = await chrome.runtime.sendMessage(message);
+      console.log(`✅ Ambient sound ${soundKey} started successfully:`, response);
     } catch (error) {
-      console.error(`Error starting ambient sound ${soundKey}:`, error);
+      console.error(`❌ Failed to start sound ${soundKey}:`, error);
+
+      // If connection failed, mark offscreen as not ready and try once more
+      if (error.message.includes("Could not establish connection")) {
+        console.log("Connection failed, marking offscreen as not ready and retrying...");
+        this.offscreenReady = false;
+
+        try {
+          await this.ensureOffscreen();
+          if (this.offscreenReady) {
+            console.log("Retry attempt after reconnection...");
+            const retryMessage = {
+              type: "START_AMBIENT_SOUND",
+              soundKey: soundKey,
+              audioUrl: chrome.runtime.getURL(`audio/${soundKey}.m4a`),
+              volume: volume / 100,
+              target: "offscreen",
+            };
+
+            const retryResponse = await chrome.runtime.sendMessage(retryMessage);
+            console.log(`✅ Retry successful for ${soundKey}:`, retryResponse);
+          }
+        } catch (retryError) {
+          console.error(`❌ Retry also failed for ${soundKey}:`, retryError);
+        }
+      }
     }
   }
 
@@ -420,13 +527,20 @@ class AmbientSoundManager {
       const ready = await this.ensureOffscreen();
       if (ready) {
         try {
-          await chrome.runtime.sendMessage({
+          console.log(`Sending stop message to offscreen for ${soundKey}`);
+
+          const response = await chrome.runtime.sendMessage({
             type: "STOP_AMBIENT_SOUND",
             soundKey: soundKey,
+            target: "offscreen",
           });
+
+          console.log(`Stop message sent for ${soundKey}:`, response);
         } catch (error) {
-          console.error(`Failed to stop sound in offscreen document:`, error);
+          console.error(`Failed to stop sound:`, error);
         }
+      } else {
+        console.error("Offscreen document not ready for stopping sound");
       }
     } catch (error) {
       console.error(`Error stopping ambient sound ${soundKey}:`, error);
@@ -441,14 +555,21 @@ class AmbientSoundManager {
       const ready = await this.ensureOffscreen();
       if (ready) {
         try {
-          await chrome.runtime.sendMessage({
+          console.log(`Sending volume update to offscreen for ${soundKey}: ${volume / 100}`);
+
+          const response = await chrome.runtime.sendMessage({
             type: "UPDATE_AMBIENT_VOLUME",
             soundKey: soundKey,
             volume: volume / 100, // Convert to 0-1 range
+            target: "offscreen",
           });
+
+          console.log(`Volume update sent for ${soundKey}:`, response);
         } catch (error) {
-          console.error(`Failed to update volume in offscreen document:`, error);
+          console.error(`Failed to update volume:`, error);
         }
+      } else {
+        console.error("Offscreen document not ready for volume update");
       }
     } catch (error) {
       console.error(`Error updating volume for ${soundKey}:`, error);
@@ -463,11 +584,16 @@ class AmbientSoundManager {
       const ready = await this.ensureOffscreen();
       if (ready) {
         try {
-          await chrome.runtime.sendMessage({
+          console.log(`Sending stop all message to offscreen`);
+
+          const response = await chrome.runtime.sendMessage({
             type: "STOP_ALL_AMBIENT_SOUNDS",
+            target: "offscreen",
           });
+
+          console.log(`Stop all message sent:`, response);
         } catch (error) {
-          console.error(`Failed to stop all sounds in offscreen document:`, error);
+          console.error(`Failed to stop all sounds:`, error);
         }
       }
     } catch (error) {
@@ -487,15 +613,19 @@ class AmbientSoundManager {
       const ready = await this.ensureOffscreen();
       if (ready) {
         try {
-          await chrome.runtime.sendMessage({
+          console.log(`Sending test message to offscreen for ${soundKey}`);
+
+          const response = await chrome.runtime.sendMessage({
             type: "TEST_AMBIENT_SOUND",
             soundKey: soundKey,
             audioUrl: audioUrl,
             volume: volume / 100,
+            target: "offscreen",
           });
-          console.log(`Test sound ${soundKey} sent to offscreen document`);
+
+          console.log(`Test sound ${soundKey} sent:`, response);
         } catch (error) {
-          console.error(`Failed to test sound in offscreen document:`, error);
+          console.error(`Failed to test sound:`, error);
         }
       }
     } catch (error) {
@@ -575,6 +705,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case "AMBIENT_UPDATE_SETTINGS":
       ambientManager.updateSettings(message.settings);
+      sendResponse({ success: true });
+      break;
+
+    case "AMBIENT_UPDATE_VOLUME":
+      console.log(`Received volume update request: ${message.soundKey} -> ${message.volume}%`);
+      ambientManager.updateVolume(message.soundKey, message.volume);
       sendResponse({ success: true });
       break;
 

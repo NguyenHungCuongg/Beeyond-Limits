@@ -1,69 +1,113 @@
 // Offscreen document for audio playback
-console.log("Offscreen audio manager loaded");
+/* global chrome */
+
+console.log("=== OFFSCREEN DOCUMENT STARTING ===");
+console.log("Document URL:", document.URL);
+console.log("Document ready state:", document.readyState);
 
 // Map to store active ambient sounds
 const ambientSounds = new Map();
-
-// Track if audio context has been enabled by user
 let audioEnabled = false;
 
-// Create initial user interaction
-document.addEventListener("DOMContentLoaded", () => {
-  // Automatically trigger a user gesture to enable audio
-  setTimeout(() => {
-    // Simulate user interaction to enable Web Audio API
-    const enableAudio = () => {
-      console.log("Attempting to enable audio context");
+// Simple auto-enable function
+function enableAudio() {
+  console.log("=== ENABLING AUDIO ===");
 
-      // Create a silent audio to enable audio context
-      try {
-        const silentAudio = new Audio();
-        silentAudio.volume = 0;
-        silentAudio
-          .play()
-          .then(() => {
-            console.log("Audio context enabled successfully");
-            audioEnabled = true;
-          })
-          .catch(() => {
-            console.log("Still need user interaction for audio");
-          });
-      } catch (error) {
-        console.log("Audio context setup failed:", error);
-      }
-    };
+  // Find the button if it exists
+  const button = document.getElementById("enable-audio");
+  if (button) {
+    console.log("Found enable-audio button");
 
-    enableAudio();
-  }, 100);
-});
+    button.addEventListener("click", () => {
+      console.log("=== BUTTON CLICKED ===");
+      audioEnabled = true;
+      button.style.display = "none";
 
-// Auto-enable audio on any interaction
-document.addEventListener("click", () => {
-  if (!audioEnabled) {
-    audioEnabled = true;
-    console.log("Audio enabled via user interaction");
+      // Try to play silent audio
+      const audio = new Audio();
+      audio.volume = 0;
+      audio.src =
+        "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEeCitX2PDNeSsFInDF8N6SQgqgQaLd7KhVFAhKeOC0vmMeGCtE2PHLeSsFInDF8N6SQgocSKDe7KhVFwpKd+Cwf2EeGCtE2PHLeSsFInDF8N6SQgocSKDe7KhVFwpKd+Cwf2EeGCtE2PHLeSsFInDF8N6SQgocSKDe7KhVFwpKd+Cwf2EeGCtE2PHLeSsFInDF8N6SQggQaLrt4YJSEg1Sn+DjvWcfGyd82PLEeSACJHfM9d2OPwgVYLbp4Z1TFApKfudF3fCOPwgVYLbp4Z1TFApKfudF3fCOPwgVYLbp4Z1TFApKfudF3fCOPwgVYLbp4Z1T";
+
+      audio
+        .play()
+        .then(() => {
+          console.log("=== AUDIO CONTEXT ENABLED VIA OFFSCREEN BUTTON CLICK ===");
+        })
+        .catch((e) => {
+          console.log("Audio play failed:", e);
+        });
+    });
+
+    // Auto-click after a short delay
+    setTimeout(() => {
+      console.log("Auto-clicking button...");
+      button.click();
+    }, 500);
+  } else {
+    console.error("❌ Could not find enable-audio button!");
   }
-});
+}
 
-// Listen for messages from background script
+// Wait for DOM to be ready
+if (document.readyState === "loading") {
+  console.log("DOM loading, waiting for DOMContentLoaded...");
+  document.addEventListener("DOMContentLoaded", () => {
+    console.log("DOMContentLoaded fired, enabling audio...");
+    enableAudio();
+  });
+} else {
+  console.log("DOM already ready, enabling audio immediately...");
+  enableAudio();
+}
+
+console.log("=== Setting up message listener ===");
+
+// Message listener
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log("Offscreen received message:", message);
+  console.log("=== OFFSCREEN RECEIVED MESSAGE ===");
+  console.log("Message type:", message.type);
+  console.log("Message target:", message.target);
+  console.log("Full message:", message);
+  console.log("Sender:", sender);
 
-  if (message.type === "START_AMBIENT_SOUND") {
-    startAmbientSound(message.soundKey, message.audioUrl, message.volume);
-    sendResponse({ success: true });
-  } else if (message.type === "STOP_AMBIENT_SOUND") {
-    stopAmbientSound(message.soundKey);
-    sendResponse({ success: true });
-  } else if (message.type === "UPDATE_AMBIENT_VOLUME") {
-    updateAmbientVolume(message.soundKey, message.volume);
-    sendResponse({ success: true });
-  } else if (message.type === "STOP_ALL_AMBIENT_SOUNDS") {
-    stopAllAmbientSounds();
-    sendResponse({ success: true });
-  } else if (message.type === "TEST_AMBIENT_SOUND") {
-    testAmbientSound(message.soundKey, message.audioUrl, message.volume);
-    sendResponse({ success: true });
+  // Only process messages for offscreen
+  if (message.target && message.target !== "offscreen") {
+    console.log("Message not for offscreen, ignoring");
+    return false;
+  }
+
+  try {
+    if (message.type === "PING_OFFSCREEN") {
+      console.log("=== PING RECEIVED - OFFSCREEN IS READY ===");
+      sendResponse({ success: true, ready: true, audioEnabled: audioEnabled });
+    } else if (message.type === "START_AMBIENT_SOUND") {
+      console.log("=== PROCESSING START_AMBIENT_SOUND ===");
+      startAmbientSound(message.soundKey, message.audioUrl, message.volume);
+      sendResponse({ success: true });
+    } else if (message.type === "STOP_AMBIENT_SOUND") {
+      console.log("=== PROCESSING STOP_AMBIENT_SOUND ===");
+      stopAmbientSound(message.soundKey);
+      sendResponse({ success: true });
+    } else if (message.type === "UPDATE_AMBIENT_VOLUME") {
+      console.log("=== PROCESSING UPDATE_AMBIENT_VOLUME ===");
+      updateAmbientVolume(message.soundKey, message.volume);
+      sendResponse({ success: true });
+    } else if (message.type === "STOP_ALL_AMBIENT_SOUNDS") {
+      console.log("=== PROCESSING STOP_ALL_AMBIENT_SOUNDS ===");
+      stopAllAmbientSounds();
+      sendResponse({ success: true });
+    } else if (message.type === "TEST_AMBIENT_SOUND") {
+      console.log("=== PROCESSING TEST_AMBIENT_SOUND ===");
+      testAmbientSound(message.soundKey, message.audioUrl, message.volume);
+      sendResponse({ success: true });
+    } else {
+      console.log("Unknown message type:", message.type);
+      sendResponse({ success: false, error: "Unknown message type" });
+    }
+  } catch (error) {
+    console.error("Error processing message:", error);
+    sendResponse({ success: false, error: error.message });
   }
 
   return true; // Keep message channel open
@@ -71,132 +115,110 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 function startAmbientSound(soundKey, audioUrl, volume) {
   try {
-    console.log(`Offscreen starting ambient sound: ${soundKey} at volume ${volume} from ${audioUrl}`);
+    console.log(`=== STARTING AMBIENT SOUND ===`);
+    console.log(`Sound: ${soundKey}, URL: ${audioUrl}, Volume: ${volume}`);
 
     // Stop existing sound if any
-    stopAmbientSound(soundKey);
+    const existingAudio = ambientSounds.get(soundKey);
+    if (existingAudio) {
+      console.log(`Stopping existing ${soundKey}`);
+      existingAudio.pause();
+      existingAudio.currentTime = 0;
+    }
 
-    // Create new audio element with better setup
+    // Create new audio
     const audio = new Audio();
     audio.src = audioUrl;
-    audio.loop = true; // Loop ambient sounds
+    audio.loop = true;
     audio.volume = volume;
     audio.preload = "auto";
-    audio.crossOrigin = "anonymous";
 
-    // Try to set audio to autoplay (this might help)
-    audio.autoplay = false; // Don't use autoplay as it's blocked
-
-    // Store in ambient sounds map immediately
+    // Store immediately
     ambientSounds.set(soundKey, audio);
+    console.log(`Stored ${soundKey} in map`);
 
-    // Add event listeners for debugging
-    audio.addEventListener("loadstart", () => console.log(`Offscreen ${soundKey}: Load started`));
-    audio.addEventListener("loadeddata", () => console.log(`Offscreen ${soundKey}: Data loaded`));
-    audio.addEventListener("loadedmetadata", () => console.log(`Offscreen ${soundKey}: Metadata loaded`));
-    audio.addEventListener("canplay", () => {
-      console.log(`Offscreen ${soundKey}: Can play`);
-      // Try to play when can play
-      if (!audio.paused && audio.currentTime === 0) {
-        console.log(`Offscreen ${soundKey}: Auto-attempting play from canplay`);
-        tryPlayAudio(audio, soundKey);
-      }
-    });
-    audio.addEventListener("canplaythrough", () => console.log(`Offscreen ${soundKey}: Can play through`));
-    audio.addEventListener("play", () => console.log(`Offscreen ${soundKey}: Playing with loop=${audio.loop}`));
-    audio.addEventListener("playing", () => console.log(`Offscreen ${soundKey}: Actually playing now`));
-    audio.addEventListener("pause", () => console.log(`Offscreen ${soundKey}: Paused`));
-    audio.addEventListener("error", (e) => {
-      console.error(`Offscreen ${soundKey} error:`, e);
-      console.error(`Error details:`, e.target.error);
-    });
-    audio.addEventListener("ended", () => console.log(`Offscreen ${soundKey}: Ended (should loop)`));
+    // Add event listeners
+    audio.addEventListener("loadstart", () => console.log(`${soundKey}: Load started`));
+    audio.addEventListener("canplay", () => console.log(`${soundKey}: Can play`));
+    audio.addEventListener("play", () => console.log(`${soundKey}: Playing`));
+    audio.addEventListener("error", (e) => console.error(`${soundKey} error:`, e));
 
-    // Function to try playing audio
-    const tryPlayAudio = (audioElement, key) => {
-      const playPromise = audioElement.play();
-
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            console.log(`Offscreen ambient sound ${key} started successfully`);
-          })
-          .catch((error) => {
-            console.warn(`Offscreen ambient sound ${key} autoplay blocked:`, error);
-
-            // Try different approaches
-            setTimeout(() => {
-              console.log(`Retrying audio ${key} after delay...`);
-              audioElement.play().catch((e) => {
-                console.log(`Retry failed for ${key}:`, e);
-
-                // Last resort: wait for user to interact with ANY page
-                console.log(`${key} waiting for user interaction...`);
-                const waitForInteraction = () => {
-                  audioElement
-                    .play()
-                    .then(() => {
-                      console.log(`${key} finally started after waiting!`);
-                    })
-                    .catch((err) => {
-                      console.log(`${key} still failed:`, err);
-                    });
-                };
-
-                // Try again in a few seconds
-                setTimeout(waitForInteraction, 3000);
-              });
-            }, 1000);
-          });
-      }
-    };
-
-    // Load the audio
+    // Try to play
     audio.load();
+    const playPromise = audio.play();
 
-    // Try to play immediately
-    console.log(`Attempting immediate play for ${soundKey}`);
-    tryPlayAudio(audio, soundKey);
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          console.log(`✅ ${soundKey} started successfully`);
+        })
+        .catch((error) => {
+          console.warn(`⚠️ ${soundKey} autoplay blocked:`, error);
 
-    console.log(`Offscreen ambient sound ${soundKey} setup complete`);
+          // Try again with user gesture simulation
+          setTimeout(() => {
+            const btn = document.createElement("button");
+            btn.style.display = "none";
+            document.body.appendChild(btn);
+
+            btn.addEventListener("click", () => {
+              audio
+                .play()
+                .then(() => console.log(`✅ ${soundKey} started after interaction`))
+                .catch((e) => console.log(`❌ ${soundKey} still failed:`, e));
+              document.body.removeChild(btn);
+            });
+
+            btn.click();
+          }, 100);
+        });
+    }
+
+    console.log(`${soundKey} setup complete`);
   } catch (error) {
-    console.error(`Offscreen error starting ambient sound ${soundKey}:`, error);
+    console.error(`Error starting ${soundKey}:`, error);
   }
 }
 
 function stopAmbientSound(soundKey) {
   try {
-    console.log(`Offscreen stopping ambient sound: ${soundKey}`);
+    console.log(`=== STOPPING AMBIENT SOUND: ${soundKey} ===`);
 
     const audio = ambientSounds.get(soundKey);
     if (audio) {
+      console.log(`Found ${soundKey}, stopping...`);
       audio.pause();
       audio.currentTime = 0;
       ambientSounds.delete(soundKey);
-      console.log(`Offscreen ambient sound ${soundKey} stopped`);
+      console.log(`✅ ${soundKey} stopped and removed`);
+    } else {
+      console.warn(`⚠️ No audio found for ${soundKey}`);
     }
   } catch (error) {
-    console.error(`Offscreen error stopping ambient sound ${soundKey}:`, error);
+    console.error(`Error stopping ${soundKey}:`, error);
   }
 }
 
 function updateAmbientVolume(soundKey, volume) {
   try {
-    console.log(`Offscreen updating volume for ${soundKey}: ${volume}`);
+    console.log(`=== UPDATING VOLUME: ${soundKey} to ${volume} ===`);
 
     const audio = ambientSounds.get(soundKey);
     if (audio) {
+      console.log(`Found ${soundKey}, updating volume...`);
       audio.volume = volume;
-      console.log(`Offscreen volume updated for ${soundKey}`);
+      console.log(`✅ ${soundKey} volume updated to ${volume}`);
+    } else {
+      console.warn(`⚠️ No audio found for ${soundKey}`);
     }
   } catch (error) {
-    console.error(`Offscreen error updating volume for ${soundKey}:`, error);
+    console.error(`Error updating volume for ${soundKey}:`, error);
   }
 }
 
 function stopAllAmbientSounds() {
   try {
-    console.log("Offscreen stopping all ambient sounds");
+    console.log("=== STOPPING ALL AMBIENT SOUNDS ===");
 
     for (const [soundKey, audio] of ambientSounds) {
       audio.pause();
@@ -204,38 +226,28 @@ function stopAllAmbientSounds() {
     }
 
     ambientSounds.clear();
-    console.log("Offscreen all ambient sounds stopped");
+    console.log("✅ All ambient sounds stopped");
   } catch (error) {
-    console.error("Offscreen error stopping all ambient sounds:", error);
+    console.error("Error stopping all sounds:", error);
   }
 }
 
 function testAmbientSound(soundKey, audioUrl, volume) {
   try {
-    console.log(`Offscreen testing ambient sound: ${soundKey} at volume ${volume} from ${audioUrl}`);
+    console.log(`=== TESTING SOUND: ${soundKey} ===`);
 
-    // Create temporary audio for testing (non-looping)
     const audio = new Audio(audioUrl);
     audio.volume = volume;
-    audio.loop = false; // Don't loop for test
+    audio.loop = false;
 
-    // Add event listeners for debugging
-    audio.addEventListener("loadstart", () => console.log(`Offscreen test ${soundKey}: Load started`));
-    audio.addEventListener("loadeddata", () => console.log(`Offscreen test ${soundKey}: Data loaded`));
-    audio.addEventListener("canplay", () => console.log(`Offscreen test ${soundKey}: Can play`));
-    audio.addEventListener("play", () => console.log(`Offscreen test ${soundKey}: Playing`));
-    audio.addEventListener("error", (e) => console.error(`Offscreen test ${soundKey} error:`, e));
-
-    // Try to play
     const playPromise = audio.play();
-
     if (playPromise !== undefined) {
       playPromise
         .then(() => {
-          console.log(`Offscreen test sound ${soundKey} playing successfully`);
+          console.log(`✅ Test sound ${soundKey} playing`);
         })
         .catch((error) => {
-          console.warn(`Offscreen test sound ${soundKey} autoplay blocked:`, error);
+          console.warn(`⚠️ Test sound ${soundKey} blocked:`, error);
         });
     }
 
@@ -243,9 +255,11 @@ function testAmbientSound(soundKey, audioUrl, volume) {
     setTimeout(() => {
       audio.pause();
       audio.currentTime = 0;
-      console.log(`Offscreen test sound ${soundKey} stopped`);
+      console.log(`Test sound ${soundKey} stopped`);
     }, 3000);
   } catch (error) {
-    console.error(`Offscreen error testing ambient sound ${soundKey}:`, error);
+    console.error(`Error testing ${soundKey}:`, error);
   }
 }
+
+console.log("=== OFFSCREEN SCRIPT LOADED ===");

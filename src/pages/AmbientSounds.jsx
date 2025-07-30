@@ -88,6 +88,18 @@ function AmbientSounds({ onNavigate }) {
           },
         };
         saveSettings(newSounds);
+
+        // If sound is currently enabled, send immediate volume update
+        if (newSounds[soundKey].enabled && chrome?.runtime?.sendMessage) {
+          chrome.runtime
+            .sendMessage({
+              type: "AMBIENT_UPDATE_VOLUME",
+              soundKey: soundKey,
+              volume: volume,
+            })
+            .catch((error) => console.error("Error sending volume update:", error));
+        }
+
         return newSounds;
       });
     },
