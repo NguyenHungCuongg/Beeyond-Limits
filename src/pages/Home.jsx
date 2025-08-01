@@ -75,7 +75,9 @@ function Home({ onNavigate }) {
                 🎵
               </div>
               <div className="flex-1">
-                <h3 className="font-bold text-gray-800 group-hover:text-purple-600 transition-colors">Focus Sounds</h3>
+                <h3 className="font-bold text-gray-800 group-hover:text-purple-600 transition-colors">
+                  Ambient Sounds
+                </h3>
                 <p className="text-sm text-gray-600">Nature & white noise</p>
               </div>
               <div className="text-gray-400 group-hover:text-purple-500 transition-colors">→</div>

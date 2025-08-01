@@ -165,7 +165,7 @@ function AmbientSounds({ onNavigate }) {
             ←
           </button>
           <div className="flex-1 text-center self-center">
-            <h1 className="text-2xl font-bold text-white drop-shadow-lg">Focus Sounds</h1>
+            <h1 className="text-2xl font-bold text-white drop-shadow-lg">Ambient Sounds</h1>
             <p className="text-purple-100 text-sm">Nature sounds to enhance your focus 🎵</p>
           </div>
         </div>
