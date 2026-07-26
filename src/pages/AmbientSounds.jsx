@@ -1,204 +1,217 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
 
 /* global chrome */
 
+const extensionApi = typeof chrome !== "undefined" ? chrome : null;
+const SOUND_METADATA = Object.freeze({
+  bird: { name: "Birds", icon: "🐦" },
+  campfire: { name: "Campfire", icon: "🔥" },
+  ocean_waves: { name: "Ocean Waves", icon: "🌊" },
+  rain: { name: "Rain", icon: "🌧️" },
+  thunder: { name: "Thunder", icon: "⛈️" },
+  wind: { name: "Wind", icon: "🌬️" },
+});
+
+function mergeSettings(settings = {}) {
+  return Object.fromEntries(
+    Object.entries(SOUND_METADATA).map(([soundKey, metadata]) => [
+      soundKey,
+      {
+        ...metadata,
+        enabled: Boolean(settings[soundKey]?.enabled),
+        volume: Number.isFinite(settings[soundKey]?.volume)
+          ? settings[soundKey].volume
+          : 50,
+      },
+    ]),
+  );
+}
+
 function AmbientSounds({ onNavigate }) {
-  const [sounds, setSounds] = useState({
-    bird: { enabled: false, volume: 50, name: "Birds", icon: "🐦" },
-    campfire: { enabled: false, volume: 50, name: "Campfire", icon: "🔥" },
-    ocean_waves: { enabled: false, volume: 50, name: "Ocean Waves", icon: "🌊" },
-    rain: { enabled: false, volume: 50, name: "Rain", icon: "🌧️" },
-    thunder: { enabled: false, volume: 50, name: "Thunder", icon: "⛈️" },
-    wind: { enabled: false, volume: 50, name: "Wind", icon: "🌬️" },
-  });
+  const [sounds, setSounds] = useState(() => mergeSettings());
+  const [isSaving, setIsSaving] = useState(false);
+  const volumeTimerRef = useRef(null);
 
-  // Load saved settings
-  const loadSettings = useCallback(async () => {
-    if (!chrome?.storage?.local) {
-      console.warn("Chrome storage not available - running in dev mode");
-      return;
+  const soundsRef = useRef(sounds);
+  const sendSettings = useCallback(async (nextSounds, previousSounds) => {
+    if (!extensionApi?.runtime?.sendMessage) {
+      setSounds(nextSounds);
+      return true;
     }
 
     try {
-      const result = await chrome.storage.local.get(["ambientSettings"]);
-      if (result.ambientSettings) {
-        setSounds((prev) => ({ ...prev, ...result.ambientSettings }));
+      const response = await extensionApi.runtime.sendMessage({
+        type: "AMBIENT_UPDATE_SETTINGS",
+        settings: nextSounds,
+      });
+      if (!response?.success) {
+        throw new Error(response?.error || "Unable to update ambient sounds");
       }
+      setSounds(mergeSettings(response.settings));
+      return true;
     } catch (error) {
-      console.error("Error loading ambient settings:", error);
+      setSounds(previousSounds);
+      console.error("Unable to update ambient sounds:", error);
+      toast.error(error.message);
+      return false;
     }
   }, []);
 
-  // Save settings
-  const saveSettings = useCallback(async (newSounds) => {
-    if (!chrome?.storage?.local) {
-      console.warn("Chrome storage not available - running in dev mode");
-      return;
-    }
-
-    try {
-      await chrome.storage.local.set({ ambientSettings: newSounds });
-
-      // Send update to background script
-      if (chrome?.runtime?.sendMessage) {
-        chrome.runtime
-          .sendMessage({
-            type: "AMBIENT_UPDATE_SETTINGS",
-            settings: newSounds,
-          })
-          .catch((error) => console.error("Error sending ambient settings:", error));
-      }
-    } catch (error) {
-      console.error("Error saving ambient settings:", error);
-    }
-  }, []);
-
-  // Load settings on mount
   useEffect(() => {
-    loadSettings();
-  }, [loadSettings]);
-
-  // Toggle sound on/off
-  const toggleSound = useCallback(
-    (soundKey) => {
-      setSounds((prev) => {
-        const newSounds = {
-          ...prev,
-          [soundKey]: {
-            ...prev[soundKey],
-            enabled: !prev[soundKey].enabled,
-          },
-        };
-        saveSettings(newSounds);
-        return newSounds;
-      });
-    },
-    [saveSettings]
-  );
-
-  // Change volume
-  const changeVolume = useCallback(
-    (soundKey, volume) => {
-      setSounds((prev) => {
-        const newSounds = {
-          ...prev,
-          [soundKey]: {
-            ...prev[soundKey],
-            volume: volume,
-          },
-        };
-        saveSettings(newSounds);
-
-        // If sound is currently enabled, send immediate volume update
-        if (newSounds[soundKey].enabled && chrome?.runtime?.sendMessage) {
-          chrome.runtime
-            .sendMessage({
-              type: "AMBIENT_UPDATE_VOLUME",
-              soundKey: soundKey,
-              volume: volume,
-            })
-            .catch((error) => console.error("Error sending volume update:", error));
-        }
-
-        return newSounds;
-      });
-    },
-    [saveSettings]
-  );
-
-  // Test sound
-  const testSound = useCallback(
-    async (soundKey) => {
-      if (!chrome?.runtime?.sendMessage) {
-        console.warn("Chrome runtime not available - running in dev mode");
-        return;
-      }
-
+    async function loadSettings() {
+      if (!extensionApi?.storage?.local) return;
       try {
-        await chrome.runtime.sendMessage({
-          type: "AMBIENT_TEST_SOUND",
-          soundKey: soundKey,
-          volume: sounds[soundKey].volume,
-        });
+        const result = await extensionApi.storage.local.get([
+          "ambientSettings",
+        ]);
+        setSounds(mergeSettings(result.ambientSettings));
       } catch (error) {
-        console.error("Error testing sound:", error);
+        console.error("Unable to load ambient settings:", error);
+        toast.error("Could not load ambient sound settings");
       }
-    },
-    [sounds]
-  );
-
-  // Stop all sounds
-  const stopAllSounds = useCallback(async () => {
-    if (!chrome?.runtime?.sendMessage) {
-      console.warn("Chrome runtime not available - running in dev mode");
-      return;
     }
 
+    loadSettings();
+    return () => clearTimeout(volumeTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    soundsRef.current = sounds;
+  }, [sounds]);
+
+  async function toggleSound(soundKey) {
+    const previousSounds = sounds;
+    const nextSounds = {
+      ...sounds,
+      [soundKey]: {
+        ...sounds[soundKey],
+        enabled: !sounds[soundKey].enabled,
+      },
+    };
+    setSounds(nextSounds);
+    soundsRef.current = nextSounds;
+    setIsSaving(true);
+    await sendSettings(nextSounds, previousSounds);
+    setIsSaving(false);
+  }
+
+  function changeVolume(soundKey, volume) {
+    const nextSounds = {
+      ...sounds,
+      [soundKey]: { ...sounds[soundKey], volume },
+    };
+    setSounds(nextSounds);
+
+    soundsRef.current = nextSounds;
+    clearTimeout(volumeTimerRef.current);
+    volumeTimerRef.current = setTimeout(() => {
+      sendSettings(soundsRef.current, soundsRef.current);
+    }, 150);
+  }
+
+  async function testSound(soundKey) {
     try {
-      await chrome.runtime.sendMessage({
+      const response = await extensionApi.runtime.sendMessage({
+        type: "AMBIENT_TEST_SOUND",
+        soundKey,
+        volume: sounds[soundKey].volume,
+      });
+      if (!response?.success) {
+        throw new Error(response?.error || "Unable to test sound");
+      }
+    } catch (error) {
+      console.error("Unable to test ambient sound:", error);
+      toast.error(error.message);
+    }
+  }
+
+  async function stopAllSounds() {
+    setIsSaving(true);
+    try {
+      const response = await extensionApi.runtime.sendMessage({
         type: "AMBIENT_STOP_ALL",
       });
-
-      // Turn off all sounds in UI
-      setSounds((prev) => {
-        const newSounds = {};
-        Object.keys(prev).forEach((key) => {
-          newSounds[key] = { ...prev[key], enabled: false };
-        });
-        saveSettings(newSounds);
-        return newSounds;
-      });
+      if (!response?.success) {
+        throw new Error(response?.error || "Unable to stop sounds");
+      }
+      setSounds(mergeSettings(response.settings));
     } catch (error) {
-      console.error("Error stopping sounds:", error);
+      console.error("Unable to stop ambient sounds:", error);
+      toast.error(error.message);
+    } finally {
+      setIsSaving(false);
     }
-  }, [saveSettings]);
+  }
 
   return (
-    <div className="h-full bg-gradient-to-br from-purple-500 via-violet-500 to-purple-600 font-primary overflow-auto">
+    <div className="h-full overflow-auto bg-gradient-to-br from-purple-500 via-violet-500 to-purple-600 font-primary">
       <div className="p-6">
-        {/* Header với back button */}
-        <div className="flex flex-col items-start mb-6">
+        <div className="mb-6 flex flex-col items-start">
           <button
+            type="button"
             onClick={() => onNavigate("home")}
-            className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-white hover:bg-white/30 transition-colors mr-4"
+            aria-label="Back to home"
+            className="mr-4 flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-sm transition-colors hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             ←
           </button>
-          <div className="flex-1 text-center self-center">
-            <h1 className="text-2xl font-bold text-white drop-shadow-lg">Ambient Sounds</h1>
-            <p className="text-purple-100 text-sm">Nature sounds to enhance your focus 🎵</p>
+          <div className="flex-1 self-center text-center">
+            <h1 className="text-2xl font-bold text-white drop-shadow-lg">
+              Ambient Sounds
+            </h1>
+            <p className="text-sm text-purple-100">
+              Nature sounds to enhance your focus 🎵
+            </p>
           </div>
         </div>
 
-        {/* Sound Controls */}
-        <div className="space-y-4 mb-6">
+        <div className="mb-6 space-y-4">
           {Object.entries(sounds).map(([soundKey, sound]) => (
-            <div key={soundKey} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-              <div className="flex items-center justify-between mb-3">
+            <section
+              key={soundKey}
+              aria-labelledby={`${soundKey}-name`}
+              className="rounded-xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm"
+            >
+              <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="text-white text-2xl">{sound.icon}</div>
+                  <div aria-hidden="true" className="text-2xl text-white">
+                    {sound.icon}
+                  </div>
                   <div>
-                    <div className="font-medium text-white">{sound.name}</div>
-                    <div className="text-xs text-white/70">Volume: {sound.volume}%</div>
+                    <h2
+                      id={`${soundKey}-name`}
+                      className="font-medium text-white"
+                    >
+                      {sound.name}
+                    </h2>
+                    <div className="text-xs text-white/70">
+                      Volume: {sound.volume}%
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  {/* Test Button */}
                   <button
+                    type="button"
                     onClick={() => testSound(soundKey)}
-                    className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center text-white hover:bg-white/30 transition-colors text-sm"
-                    title="Test Sound"
+                    aria-label={`Test ${sound.name} sound`}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 text-sm text-white backdrop-blur-sm transition-colors hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                   >
                     ▶️
                   </button>
-                  {/* Toggle Button */}
                   <button
+                    type="button"
+                    role="switch"
+                    aria-checked={sound.enabled}
+                    aria-label={`${sound.name} ambient sound`}
+                    disabled={isSaving}
                     onClick={() => toggleSound(soundKey)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 ${
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 ${
                       sound.enabled ? "bg-white" : "bg-white/30"
                     }`}
                   >
                     <span
+                      aria-hidden="true"
                       className={`inline-block h-4 w-4 transform rounded-full bg-purple-500 transition ${
                         sound.enabled ? "translate-x-6" : "translate-x-1"
                       }`}
@@ -207,70 +220,49 @@ function AmbientSounds({ onNavigate }) {
                 </div>
               </div>
 
-              {/* Volume Slider */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs text-white/70">
-                  <span>Volume</span>
-                  <span>{sound.volume}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={sound.volume}
-                  onChange={(e) => changeVolume(soundKey, parseInt(e.target.value))}
-                  className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
-                  style={{
-                    background: `linear-gradient(to right, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.8) ${sound.volume}%, rgba(255,255,255,0.2) ${sound.volume}%, rgba(255,255,255,0.2) 100%)`,
-                  }}
-                />
-              </div>
-            </div>
+              <label
+                htmlFor={`${soundKey}-volume`}
+                className="mb-2 flex items-center justify-between text-xs text-white/70"
+              >
+                <span>Volume</span>
+                <span>{sound.volume}%</span>
+              </label>
+              <input
+                id={`${soundKey}-volume`}
+                type="range"
+                min="0"
+                max="100"
+                value={sound.volume}
+                onChange={(event) =>
+                  changeVolume(soundKey, Number(event.target.value))
+                }
+                className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                style={{
+                  background: `linear-gradient(to right, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.8) ${sound.volume}%, rgba(255,255,255,0.2) ${sound.volume}%, rgba(255,255,255,0.2) 100%)`,
+                }}
+              />
+            </section>
           ))}
         </div>
 
-        {/* Control Buttons */}
         <div className="space-y-3">
           <button
+            type="button"
+            disabled={isSaving}
             onClick={stopAllSounds}
-            className="w-full bg-white/20 backdrop-blur-sm text-white font-bold py-4 rounded-xl border-2 border-white/30 hover:bg-white/30 transition-all duration-300"
+            className="w-full rounded-xl border-2 border-white/30 bg-white/20 py-4 font-bold text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:cursor-wait disabled:opacity-60"
           >
             🔇 Stop All Sounds
           </button>
-
-          <div className="flex space-x-3">
-            <button
-              onClick={() => onNavigate("home")}
-              className="flex-1 bg-white/10 backdrop-blur-sm text-white font-medium py-3 rounded-xl border border-white/20 hover:bg-white/20 transition-colors"
-            >
-              🏠 Home
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate("home")}
+            className="w-full rounded-xl border border-white/20 bg-white/10 py-3 font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            🏠 Home
+          </button>
         </div>
       </div>
-
-      {/* Custom Slider Styles */}
-      <style jsx>{`
-        .slider::-webkit-slider-thumb {
-          appearance: none;
-          height: 16px;
-          width: 16px;
-          border-radius: 50%;
-          background: #ffffff;
-          cursor: pointer;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        .slider::-moz-range-thumb {
-          height: 16px;
-          width: 16px;
-          border-radius: 50%;
-          background: #ffffff;
-          cursor: pointer;
-          border: none;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-      `}</style>
     </div>
   );
 }

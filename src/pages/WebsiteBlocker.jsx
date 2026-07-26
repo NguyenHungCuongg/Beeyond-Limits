@@ -1,258 +1,193 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import BlockedURL from "../components/BlockedURL";
 import BlockerStats from "../components/BlockerStats";
-import toast from "react-hot-toast";
+import { normalizeDomain, sanitizeBlockedUrls } from "../core/blocking";
 
 /* global chrome */
-const chromeStorage = typeof chrome !== "undefined" ? chrome.storage : null;
+
+const DEFAULT_BLOCKED_URLS = [
+  { id: 1, url: "youtube.com", createdAt: new Date().toISOString() },
+  { id: 2, url: "facebook.com", createdAt: new Date().toISOString() },
+  { id: 3, url: "tiktok.com", createdAt: new Date().toISOString() },
+];
+
+const hasExtensionStorage =
+  typeof chrome !== "undefined" && Boolean(chrome.storage?.local);
 
 function WebsiteBlocker({ onNavigate }) {
   const [blockedUrls, setBlockedUrls] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [newUrl, setNewUrl] = useState("");
   const [isBlocking, setIsBlocking] = useState(false);
-
-  // Save blocked URLs function
-  const saveBlockedUrls = useCallback(async (urlsToSave) => {
-    try {
-      if (chromeStorage && chromeStorage.local) {
-        const response = await chrome.runtime.sendMessage({
-          type: "UPDATE_BLOCKING_RULES",
-          isBlocking: isBlocking,
-          blockedUrls: urlsToSave
-        });
-        
-        if (response && response.success) {
-          await chromeStorage.local.set({ blockedUrls: urlsToSave });
-          console.log("[WebsiteBlocker] Saved URLs, updated rules");
-        } else {
-          toast.error("Failed to update rules");
-          console.error("Rule update failed:", response?.error);
-        }
-      } else {
-        // Fallback for development
-        localStorage.setItem("beeyond-blocked-urls", JSON.stringify(urlsToSave));
-      }
-    } catch (error) {
-      console.error("Error saving blocked URLs:", error);
-    }
-  }, [isBlocking]);
-
-  // Load blocked URLs from Chrome storage
-  const loadBlockedUrls = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      if (chromeStorage && chromeStorage.local) {
-        const result = await chromeStorage.local.get(["blockedUrls"]);
-        if (result.blockedUrls && Array.isArray(result.blockedUrls)) {
-          setBlockedUrls(result.blockedUrls);
-        } else {
-          // Initialize with some default blocked sites
-          const defaultBlocked = [
-            {
-              id: 1,
-              url: "youtube.com",
-              createdAt: new Date().toISOString(),
-            },
-            {
-              id: 2,
-              url: "facebook.com",
-              createdAt: new Date().toISOString(),
-            },
-            {
-              id: 3,
-              url: "tiktok.com",
-              createdAt: new Date().toISOString(),
-            },
-          ];
-          setBlockedUrls(defaultBlocked);
-          if (chromeStorage && chromeStorage.local) {
-            await chromeStorage.local.set({ blockedUrls: defaultBlocked });
-          } else {
-            localStorage.setItem("beeyond-blocked-urls", JSON.stringify(defaultBlocked));
-          }
-        }
-      } else {
-        // Fallback for development
-        const storedUrls = localStorage.getItem("beeyond-blocked-urls");
-        if (storedUrls) {
-          setBlockedUrls(JSON.parse(storedUrls));
-        } else {
-          const defaultBlocked = [];
-          setBlockedUrls(defaultBlocked);
-          localStorage.setItem("beeyond-blocked-urls", JSON.stringify(defaultBlocked));
-        }
-      }
-    } catch (error) {
-      console.error("Error loading blocked URLs:", error);
-      setBlockedUrls([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Load blocking status
-  const loadBlockingStatus = useCallback(async () => {
-    try {
-      if (chromeStorage && chromeStorage.local) {
-        const result = await chromeStorage.local.get(["isBlocking"]);
-        setIsBlocking(result.isBlocking || false);
-      } else {
-        const status = localStorage.getItem("beeyond-blocking-status");
-        setIsBlocking(status === "true");
-      }
-    } catch (error) {
-      console.error("Error loading blocking status:", error);
-    }
-  }, []);
+  const [newUrl, setNewUrl] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    loadBlockedUrls();
-    loadBlockingStatus();
-  }, [loadBlockedUrls, loadBlockingStatus]);
-
-  // Validate URL format
-  const isValidUrl = (url) => {
-    try {
-      let urlStr = url.trim();
-      if (!urlStr.startsWith('http')) {
-        urlStr = 'http://' + urlStr;
+    async function loadConfiguration() {
+      try {
+        if (hasExtensionStorage) {
+          const stored = await chrome.storage.local.get([
+            "blockedUrls",
+            "isBlocking",
+          ]);
+          setBlockedUrls(
+            Array.isArray(stored.blockedUrls)
+              ? sanitizeBlockedUrls(stored.blockedUrls)
+              : DEFAULT_BLOCKED_URLS,
+          );
+          setIsBlocking(Boolean(stored.isBlocking));
+        } else {
+          const storedUrls = localStorage.getItem("beeyond-blocked-urls");
+          setBlockedUrls(
+            storedUrls
+              ? sanitizeBlockedUrls(JSON.parse(storedUrls))
+              : DEFAULT_BLOCKED_URLS,
+          );
+          setIsBlocking(
+            localStorage.getItem("beeyond-blocking-status") === "true",
+          );
+        }
+      } catch (error) {
+        console.error("Unable to load website blocker configuration:", error);
+        toast.error("Could not load your blocklist");
+      } finally {
+        setIsLoading(false);
       }
-      const urlObj = new URL(urlStr);
-      return urlObj.hostname.includes('.');
-    } catch {
-      return false;
     }
-  };
 
-  // Clean URL (remove protocol, www, trailing slash)
-  const cleanUrl = (url) => {
+    loadConfiguration();
+  }, []);
+
+  async function persistConfiguration(nextIsBlocking, nextBlockedUrls) {
+    const normalizedUrls = sanitizeBlockedUrls(nextBlockedUrls);
+    setIsSaving(true);
+
     try {
-      let urlStr = url.trim();
-      if (!urlStr.startsWith('http')) {
-        urlStr = 'http://' + urlStr;
-      }
-      const urlObj = new URL(urlStr);
-      let hostname = urlObj.hostname.toLowerCase();
-      if (hostname.startsWith('www.')) {
-        hostname = hostname.substring(4);
-      }
-      return hostname;
-    } catch {
-      return url.toLowerCase().trim();
-    }
-  };
-
-  const addBlockedUrl = async () => {
-    if (newUrl.trim() && isValidUrl(newUrl.trim())) {
-      const cleanedUrl = cleanUrl(newUrl.trim());
-
-      // Check if URL already exists
-      const exists = blockedUrls.some((blocked) => cleanUrl(blocked.url) === cleanedUrl);
-
-      if (exists) {
-        toast.error("This website is already in your blocklist!");
-        return;
-      }
-
-      const newBlockedUrl = {
-        id: Date.now(),
-        url: cleanedUrl,
-        createdAt: new Date().toISOString(),
-      };
-
-      const updatedUrls = [newBlockedUrl, ...blockedUrls];
-      setBlockedUrls(updatedUrls);
-      await saveBlockedUrls(updatedUrls);
-      console.log("[WebsiteBlocker] Added URL:", cleanedUrl, "Total URLs:", updatedUrls.length);
-      setNewUrl("");
-    } else {
-      toast.error("Please enter a valid website URL (e.g., youtube.com)");
-    }
-  };
-
-  const removeBlockedUrl = async (urlId) => {
-    const updatedUrls = blockedUrls.filter((blocked) => blocked.id !== urlId);
-    setBlockedUrls(updatedUrls);
-    await saveBlockedUrls(updatedUrls);
-  };
-
-  const toggleBlocking = async () => {
-    const newStatus = !isBlocking;
-    try {
-      if (chromeStorage && chromeStorage.local) {
+      if (hasExtensionStorage) {
         const response = await chrome.runtime.sendMessage({
           type: "UPDATE_BLOCKING_RULES",
-          isBlocking: newStatus,
-          blockedUrls: blockedUrls
+          isBlocking: nextIsBlocking,
+          blockedUrls: normalizedUrls,
         });
-        
-        if (response && response.success) {
-          setIsBlocking(newStatus);
-          await chromeStorage.local.set({ isBlocking: newStatus });
-          console.log("[WebsiteBlocker] Blocking status changed to:", newStatus);
-        } else {
-          toast.error("Failed to update blocking rules");
-          console.error("Rule update failed:", response?.error);
+
+        if (!response?.success) {
+          throw new Error(response?.error || "Unable to update blocking rules");
         }
+
+        setIsBlocking(response.isBlocking);
+        setBlockedUrls(response.blockedUrls);
       } else {
-        setIsBlocking(newStatus);
-        localStorage.setItem("beeyond-blocking-status", newStatus.toString());
+        localStorage.setItem(
+          "beeyond-blocked-urls",
+          JSON.stringify(normalizedUrls),
+        );
+        localStorage.setItem("beeyond-blocking-status", String(nextIsBlocking));
+        setIsBlocking(nextIsBlocking);
+        setBlockedUrls(normalizedUrls);
       }
+
+      return true;
     } catch (error) {
-      console.error("Error saving blocking status:", error);
+      console.error("Unable to update website blocker:", error);
+      toast.error(error.message || "Could not update website blocking");
+      return false;
+    } finally {
+      setIsSaving(false);
     }
-  };
+  }
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      addBlockedUrl();
+  async function addBlockedUrl(event) {
+    event.preventDefault();
+    const domain = normalizeDomain(newUrl);
+    if (!domain) {
+      toast.error("Enter a valid domain, for example youtube.com");
+      return;
     }
-  };
 
-  const clearAllBlocked = async () => {
-    if (window.confirm("Are you sure you want to remove all blocked websites?")) {
-      setBlockedUrls([]);
-      await saveBlockedUrls([]);
+    if (blockedUrls.some((item) => item.url === domain)) {
+      toast.error("This website is already in your blocklist");
+      return;
     }
-  };
+
+    const nextBlockedUrls = [
+      {
+        id: globalThis.crypto?.randomUUID?.() ?? Date.now(),
+        url: domain,
+        createdAt: new Date().toISOString(),
+      },
+      ...blockedUrls,
+    ];
+
+    if (await persistConfiguration(isBlocking, nextBlockedUrls)) {
+      setNewUrl("");
+    }
+  }
+
+  async function removeBlockedUrl(urlId) {
+    await persistConfiguration(
+      isBlocking,
+      blockedUrls.filter((item) => item.id !== urlId),
+    );
+  }
+
+  async function clearAllBlocked() {
+    if (
+      window.confirm("Are you sure you want to remove all blocked websites?")
+    ) {
+      await persistConfiguration(isBlocking, []);
+    }
+  }
 
   return (
-    <div className="h-full bg-gradient-to-br from-blue-500 via-indigo-500 to-blue-600 font-primary overflow-auto">
+    <div className="h-full overflow-auto bg-gradient-to-br from-blue-500 via-indigo-500 to-blue-600 font-primary">
       <div className="p-6">
-        {/* Header with back button */}
-        <div className="flex flex-col items-start mb-6">
+        <div className="mb-6 flex flex-col items-start">
           <button
+            type="button"
             onClick={() => onNavigate("home")}
-            className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-white hover:bg-white/30 transition-colors mr-4"
+            aria-label="Back to home"
+            className="mr-4 flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-sm transition-colors hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             ←
           </button>
-          <div className="flex-1 text-center self-center">
-            <h1 className="text-2xl font-bold text-white drop-shadow-lg">Website Blocker</h1>
-            <p className="text-blue-100 text-sm">Block distracting websites to stay focused!</p>
+          <div className="flex-1 self-center text-center">
+            <h1 className="text-2xl font-bold text-white drop-shadow-lg">
+              Website Blocker
+            </h1>
+            <p className="text-sm text-blue-100">
+              Block distracting websites to stay focused!
+            </p>
           </div>
         </div>
 
-        {/* Blocking Toggle */}
-        <div className="mb-6 bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30">
+        <div className="mb-6 rounded-xl border border-white/30 bg-white/20 p-4 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="text-2xl">🛡️</div>
+              <div aria-hidden="true" className="text-2xl">
+                🛡️
+              </div>
               <div>
-                <h3 className="font-semibold text-white">Website Blocking</h3>
-                <p className="text-blue-100 text-sm">
-                  {isBlocking ? "Currently blocking distracting sites" : "Blocking is disabled"}
+                <h2 className="font-semibold text-white">Website Blocking</h2>
+                <p className="text-sm text-blue-100" aria-live="polite">
+                  {isBlocking
+                    ? "Currently blocking distracting sites"
+                    : "Blocking is disabled"}
                 </p>
               </div>
             </div>
             <button
-              onClick={toggleBlocking}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              type="button"
+              role="switch"
+              aria-checked={isBlocking}
+              aria-label="Website blocking"
+              disabled={isSaving}
+              onClick={() => persistConfiguration(!isBlocking, blockedUrls)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 ${
                 isBlocking ? "bg-green-500" : "bg-white/30"
               }`}
             >
               <span
+                aria-hidden="true"
                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                   isBlocking ? "translate-x-6" : "translate-x-1"
                 }`}
@@ -261,74 +196,91 @@ function WebsiteBlocker({ onNavigate }) {
           </div>
         </div>
 
-        {/* Add New URL */}
-        <div className="mb-6 bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30">
+        <form
+          onSubmit={addBlockedUrl}
+          className="mb-6 rounded-xl border border-white/30 bg-white/20 p-4 backdrop-blur-sm"
+        >
+          <label htmlFor="blocked-domain" className="sr-only">
+            Website domain to block
+          </label>
           <div className="flex space-x-3">
             <input
+              id="blocked-domain"
               type="text"
+              inputMode="url"
               value={newUrl}
-              onChange={(e) => setNewUrl(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onChange={(event) => setNewUrl(event.target.value)}
               placeholder="Enter website to block (e.g., youtube.com)"
-              className="flex-1 bg-white/90 backdrop-blur-sm border-0 rounded-lg px-4 py-3 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50"
+              className="flex-1 rounded-lg border-0 bg-white/90 px-4 py-3 text-gray-800 placeholder-gray-500 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-white/50"
             />
             <button
-              onClick={addBlockedUrl}
-              disabled={!newUrl.trim()}
-              className={`px-6 py-3 rounded-lg font-medium transition-all duration-300 ${
-                newUrl.trim()
-                  ? "bg-white text-blue-600 hover:bg-blue-50 shadow-lg hover:scale-105"
-                  : "bg-white/50 text-gray-400 cursor-not-allowed"
-              }`}
+              type="submit"
+              disabled={!newUrl.trim() || isSaving}
+              className="rounded-lg bg-white px-6 py-3 font-medium text-blue-600 shadow-lg transition-all duration-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:bg-white/50 disabled:text-gray-400"
             >
               Block
             </button>
           </div>
-          <div className="mt-2 flex items-center space-x-2 text-blue-100 text-xs">
-            <span>💡</span>
-            <span>Tip: Enter just the domain name (e.g., "youtube.com" instead of "https://www.youtube.com")</span>
-          </div>
-        </div>
+          <p className="mt-2 text-xs text-blue-100">
+            💡 Paths are removed automatically; the domain and its subdomains
+            will be blocked.
+          </p>
+        </form>
 
-        {/* Blocked URLs List */}
-        <div className="space-y-3 mb-6">
+        <div className="mb-6 space-y-3">
           {isLoading ? (
-            <div className="text-center py-12">
-              <div className="text-4xl mb-4 animate-bounce">🔒</div>
-              <h3 className="text-white text-lg font-medium mb-2">Loading your blocklist...</h3>
-              <p className="text-white/80 text-sm">Just a moment while we fetch your blocked sites</p>
+            <div className="py-12 text-center text-white" role="status">
+              Loading your blocklist…
             </div>
           ) : blockedUrls.length > 0 ? (
             <>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-white font-semibold">Blocked Websites ({blockedUrls.length})</h3>
-                {blockedUrls.length > 0 && (
-                  <button onClick={clearAllBlocked} className="text-white/80 hover:text-white text-sm underline">
-                    Clear All
-                  </button>
-                )}
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-semibold text-white">
+                  Blocked Websites ({blockedUrls.length})
+                </h2>
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={clearAllBlocked}
+                  className="text-sm text-white/80 underline hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-60"
+                >
+                  Clear All
+                </button>
               </div>
               {blockedUrls.map((blockedUrl) => (
-                <BlockedURL key={blockedUrl.id} blockedUrl={blockedUrl} onRemove={removeBlockedUrl} />
+                <BlockedURL
+                  key={blockedUrl.id}
+                  blockedUrl={blockedUrl}
+                  onRemove={removeBlockedUrl}
+                />
               ))}
             </>
           ) : (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">🌐</div>
-              <h3 className="text-white text-lg font-medium mb-2">No blocked websites yet</h3>
-              <p className="text-white/80 text-sm">Add websites above to start blocking distractions!</p>
+            <div className="py-12 text-center">
+              <div aria-hidden="true" className="mb-4 text-6xl">
+                🌐
+              </div>
+              <h2 className="mb-2 text-lg font-medium text-white">
+                No blocked websites yet
+              </h2>
+              <p className="text-sm text-white/80">
+                Add websites above to start blocking distractions!
+              </p>
             </div>
           )}
         </div>
 
-        {/* Stats */}
-        <BlockerStats blockedUrls={blockedUrls} isBlocking={isBlocking} blocksToday={0} />
+        <BlockerStats
+          blockedUrls={blockedUrls}
+          isBlocking={isBlocking}
+          blocksToday={0}
+        />
 
-        {/* Home Button */}
         <div className="mt-6">
           <button
+            type="button"
             onClick={() => onNavigate("home")}
-            className="w-full bg-white/10 backdrop-blur-sm text-white font-medium py-3 rounded-xl border border-white/20 hover:bg-white/20 transition-colors"
+            className="w-full rounded-xl border border-white/20 bg-white/10 py-3 font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             🏠 Back to Home
           </button>

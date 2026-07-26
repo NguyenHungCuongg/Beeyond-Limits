@@ -34,6 +34,10 @@ function Task({ task, onToggle, onDelete, onEdit }) {
       <div className="flex items-center space-x-3">
         {/* Checkbox */}
         <button
+          type="button"
+          role="checkbox"
+          aria-checked={task.completed}
+          aria-label={`${task.completed ? "Mark as active" : "Mark as completed"}: ${task.text}`}
           onClick={() => onToggle(task.id)}
           className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
             task.completed
@@ -48,6 +52,7 @@ function Task({ task, onToggle, onDelete, onEdit }) {
         <div className="flex-1">
           {isEditing ? (
             <input
+              aria-label={`Edit task: ${task.text}`}
               type="text"
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
@@ -59,7 +64,9 @@ function Task({ task, onToggle, onDelete, onEdit }) {
           ) : (
             <span
               className={`font-medium transition-all duration-300 ${
-                task.completed ? "text-gray-500 line-through" : "text-gray-800 group-hover:text-green-600"
+                task.completed
+                  ? "text-gray-500 line-through"
+                  : "text-gray-800 group-hover:text-green-600"
               }`}
             >
               {task.text}
@@ -68,9 +75,13 @@ function Task({ task, onToggle, onDelete, onEdit }) {
 
           {/* Task metadata */}
           <div className="flex items-center space-x-2 mt-1">
-            <span className="text-xs text-gray-500">{new Date(task.createdAt).toLocaleDateString()}</span>
+            <span className="text-xs text-gray-500">
+              {new Date(task.createdAt).toLocaleDateString()}
+            </span>
             {task.completed && (
-              <span className="text-xs text-green-600 bg-green-100 px-2 py-0.5 rounded-full">✓ Completed</span>
+              <span className="text-xs text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
+                ✓ Completed
+              </span>
             )}
           </div>
         </div>
@@ -78,11 +89,17 @@ function Task({ task, onToggle, onDelete, onEdit }) {
         {/* Action Buttons */}
         <div
           className={`flex items-center space-x-2 transition-opacity duration-300 ${
-            isEditing ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"
+            isEditing
+              ? "opacity-100"
+              : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"
           }`}
         >
           {/* Edit Button */}
           <button
+            type="button"
+            aria-label={
+              isEditing ? `Save task: ${task.text}` : `Edit task: ${task.text}`
+            }
             onClick={handleEdit}
             className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
               isEditing
@@ -96,6 +113,8 @@ function Task({ task, onToggle, onDelete, onEdit }) {
 
           {/* Delete Button */}
           <button
+            type="button"
+            aria-label={`Delete task: ${task.text}`}
             onClick={() => onDelete(task.id)}
             className="w-8 h-8 bg-green-200 rounded-lg flex items-center justify-center text-green-700 hover:bg-green-300 transition-colors"
             title="Delete"

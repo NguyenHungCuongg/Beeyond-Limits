@@ -1,6 +1,14 @@
 import React from "react";
 
-function NumberSlider({ label, value, min = 1, max = 60, step = 1, unit = "min", onChange }) {
+function NumberSlider({
+  label,
+  value,
+  min = 1,
+  max = 60,
+  step = 1,
+  unit = "min",
+  onChange,
+}) {
   const handleDecrease = () => {
     const newValue = Math.max(min, value - step);
     onChange(newValue);
@@ -25,10 +33,14 @@ function NumberSlider({ label, value, min = 1, max = 60, step = 1, unit = "min",
 
       <div className="flex items-center space-x-3">
         <button
+          type="button"
+          aria-label={`Decrease ${label}`}
           onClick={handleDecrease}
           disabled={value <= min}
           className={`w-8 h-8 rounded-lg flex items-center justify-center text-white transition-colors ${
-            value <= min ? "bg-white/10 opacity-50 cursor-not-allowed" : "bg-white/20 hover:bg-white/30"
+            value <= min
+              ? "bg-white/10 opacity-50 cursor-not-allowed"
+              : "bg-white/20 hover:bg-white/30"
           }`}
         >
           −
@@ -43,16 +55,24 @@ function NumberSlider({ label, value, min = 1, max = 60, step = 1, unit = "min",
           {/* Optional: Add tick marks for visual reference */}
           <div className="absolute inset-0 flex items-center">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-1 w-px bg-white/20" style={{ marginLeft: i === 0 ? "0" : `${100 / 4}%` }} />
+              <div
+                key={i}
+                className="h-1 w-px bg-white/20"
+                style={{ marginLeft: i === 0 ? "0" : `${100 / 4}%` }}
+              />
             ))}
           </div>
         </div>
 
         <button
+          type="button"
+          aria-label={`Increase ${label}`}
           onClick={handleIncrease}
           disabled={value >= max}
           className={`w-8 h-8 rounded-lg flex items-center justify-center text-white transition-colors ${
-            value >= max ? "bg-white/10 opacity-50 cursor-not-allowed" : "bg-white/20 hover:bg-white/30"
+            value >= max
+              ? "bg-white/10 opacity-50 cursor-not-allowed"
+              : "bg-white/20 hover:bg-white/30"
           }`}
         >
           +

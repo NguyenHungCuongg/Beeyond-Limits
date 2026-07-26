@@ -19,9 +19,20 @@ function Timer({ time, isActive, progress = 0, isBreak = false }) {
       <div className="absolute inset-0 rounded-full bg-white/20 backdrop-blur-sm border-4 border-white/30"></div>
 
       {/* Progress Ring */}
-      <svg className="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+      <svg
+        aria-hidden="true"
+        className="absolute inset-0 w-full h-full transform -rotate-90"
+        viewBox="0 0 100 100"
+      >
         {/* Background ring */}
-        <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
+        <circle
+          cx="50"
+          cy="50"
+          r="45"
+          fill="none"
+          stroke="rgba(255,255,255,0.1)"
+          strokeWidth="3"
+        />
 
         {/* Progress ring */}
         <circle
@@ -36,19 +47,31 @@ function Timer({ time, isActive, progress = 0, isBreak = false }) {
           strokeDashoffset={`${2 * Math.PI * 45 * progressFraction}`}
           className={`transition-all duration-1000 ${isActive ? "drop-shadow-lg" : ""}`}
           style={{
-            filter: isActive ? "drop-shadow(0 0 8px rgba(255,255,255,0.5))" : "none",
+            filter: isActive
+              ? "drop-shadow(0 0 8px rgba(255,255,255,0.5))"
+              : "none",
           }}
         />
       </svg>
 
       {/* Time Display */}
       <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-        <div className="text-4xl font-bold font-mono tracking-wider drop-shadow-lg">{formatTime(time)}</div>
-        <div className="text-sm opacity-80 mt-1">{isActive ? (isBreak ? "Break Time" : "Focus Time") : "Ready"}</div>
+        <div
+          role="timer"
+          aria-label={`${formatTime(time)} remaining`}
+          className="text-4xl font-bold font-mono tracking-wider drop-shadow-lg"
+        >
+          {formatTime(time)}
+        </div>
+        <div className="text-sm opacity-80 mt-1">
+          {isActive ? (isBreak ? "Break Time" : "Focus Time") : "Ready"}
+        </div>
       </div>
 
       {/* Pulse Animation when active */}
-      {isActive && <div className="absolute inset-0 rounded-full border-4 border-white/20 animate-ping"></div>}
+      {isActive && (
+        <div className="absolute inset-0 rounded-full border-4 border-white/20 animate-ping"></div>
+      )}
     </div>
   );
 }
