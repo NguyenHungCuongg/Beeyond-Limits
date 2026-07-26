@@ -3,7 +3,7 @@ import BlockedURL from "../components/BlockedURL";
 import BlockerStats from "../components/BlockerStats";
 import toast from "react-hot-toast";
 
-// eslint-disable-next-line no-undef
+/* global chrome */
 const chromeStorage = typeof chrome !== "undefined" ? chrome.storage : null;
 
 function WebsiteBlocker({ onNavigate }) {
@@ -120,7 +120,7 @@ function WebsiteBlocker({ onNavigate }) {
       }
       const urlObj = new URL(urlStr);
       return urlObj.hostname.includes('.');
-    } catch (e) {
+    } catch {
       return false;
     }
   };
@@ -138,7 +138,7 @@ function WebsiteBlocker({ onNavigate }) {
         hostname = hostname.substring(4);
       }
       return hostname;
-    } catch (e) {
+    } catch {
       return url.toLowerCase().trim();
     }
   };

@@ -649,29 +649,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "POMODORO_GET_STATE":
       sendResponse({ state: pomodoroManager.getState() });
       break;
-
     case "POMODORO_TEST_AUDIO":
       pomodoroManager.playNotification(message.context);
-      sendResponse({ success: true });
-      break;
-            } catch (error) {
-              // Tab doesn't have content script
-              console.log(`Tab ${tab.id} has no content script:`, error.message);
-            }
-          }
-
-          if (!hasContentScript) {
-            console.log("No content scripts found, creating audio test tab");
-            chrome.tabs.create({
-              url: chrome.runtime.getURL("simple-audio-test.html"),
-              active: false,
-            });
-          }
-        } catch (error) {
-          console.error("Error checking content scripts:", error);
-        }
-      }, 100);
-
       sendResponse({ success: true });
       break;
 

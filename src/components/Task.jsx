@@ -78,7 +78,7 @@ function Task({ task, onToggle, onDelete, onEdit }) {
         {/* Action Buttons */}
         <div
           className={`flex items-center space-x-2 transition-opacity duration-300 ${
-            isEditing ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            isEditing ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"
           }`}
         >
           {/* Edit Button */}

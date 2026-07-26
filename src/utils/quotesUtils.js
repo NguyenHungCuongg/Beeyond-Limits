@@ -7,9 +7,9 @@ export function getDailyQuote(quotes) {
     };
   }
 
-  // Get current date string (YYYY-MM-DD) để đảm bảo same quote trong ngày
+  // Get current local date string (YYYY-M-D) để đảm bảo same quote trong ngày theo giờ local
   const today = new Date();
-  const dateString = today.toISOString().split("T")[0]; // "2025-01-30"
+  const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`; // e.g., "2025-1-30"
 
   // Sử dụng date string như seed để tạo deterministic random
   let hash = 0;

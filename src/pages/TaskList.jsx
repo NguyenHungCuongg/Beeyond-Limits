@@ -86,7 +86,17 @@ function TaskList({ onNavigate }) {
   };
 
   const toggleTask = async (taskId) => {
-    const updatedTasks = tasks.map((task) => (task.id === taskId ? { ...task, completed: !task.completed } : task));
+    const updatedTasks = tasks.map((task) => {
+      if (task.id === taskId) {
+        const isCompleted = !task.completed;
+        return {
+          ...task,
+          completed: isCompleted,
+          completedAt: isCompleted ? new Date().toISOString() : null
+        };
+      }
+      return task;
+    });
     setTasks(updatedTasks);
     await saveTasks(updatedTasks);
   };

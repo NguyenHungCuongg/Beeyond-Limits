@@ -1,9 +1,29 @@
 import React from "react";
 
 function TaskStats({ tasks }) {
-  // Calculate stats from tasks
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter((task) => task.completed).length;
+  // Check if a date string is today
+  const isToday = (dateString) => {
+    if (!dateString) return false;
+    const date = new Date(dateString);
+    const today = new Date();
+    return (
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    );
+  };
+
+  // Calculate stats for today
+  // Include:
+  // 1. Tasks created today
+  // 2. Tasks completed today
+  // 3. Active tasks (carry over from previous days)
+  const todayTasks = tasks.filter(
+    (task) => !task.completed || isToday(task.completedAt) || isToday(task.createdAt)
+  );
+
+  const totalTasks = todayTasks.length;
+  const completedTasks = todayTasks.filter((task) => task.completed).length;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   return (

@@ -11,38 +11,14 @@ function BlockedURL({ blockedUrl, onRemove }) {
     }
   };
 
-  // Get favicon for the website
-  const getFavicon = (url) => {
-    try {
-      const domain = getDomain(url);
-      return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
-    } catch {
-      return null;
-    }
-  };
-
   const domain = getDomain(blockedUrl.url);
-  const favicon = getFavicon(blockedUrl.url);
 
   return (
     <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 group">
       <div className="flex items-center space-x-3">
-        {/* Favicon */}
+        {/* Favicon Placeholder */}
         <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
-          {favicon ? (
-            <img
-              src={favicon}
-              alt=""
-              className="w-6 h-6 rounded"
-              onError={(e) => {
-                e.target.style.display = "none";
-                e.target.nextSibling.style.display = "block";
-              }}
-            />
-          ) : null}
-          <span className="text-lg" style={{ display: favicon ? "none" : "block" }}>
-            🚫
-          </span>
+          <span className="text-lg">🚫</span>
         </div>
 
         {/* URL Info */}
@@ -58,7 +34,7 @@ function BlockedURL({ blockedUrl, onRemove }) {
         {/* Remove Button */}
         <button
           onClick={() => onRemove(blockedUrl.id)}
-          className="w-8 h-8 bg-red-100 hover:bg-red-200 rounded-lg flex items-center justify-center text-red-600 hover:text-red-700 transition-colors opacity-0 group-hover:opacity-100"
+          className="w-8 h-8 bg-red-100 hover:bg-red-200 rounded-lg flex items-center justify-center text-red-600 hover:text-red-700 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
           title="Remove from blocklist"
         >
           ×

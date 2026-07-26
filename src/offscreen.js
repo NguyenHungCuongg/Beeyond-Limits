@@ -220,7 +220,7 @@ function stopAllAmbientSounds() {
   try {
     console.log("=== STOPPING ALL AMBIENT SOUNDS ===");
 
-    for (const [soundKey, audio] of ambientSounds) {
+    for (const audio of ambientSounds.values()) {
       audio.pause();
       audio.currentTime = 0;
     }

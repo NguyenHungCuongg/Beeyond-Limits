@@ -3,7 +3,7 @@
   "name": "Beeyond Limits",
   "version": "1.0.0",
   "description": "Beeyond Limits is a productivity extension that helps you break through distractions and push your focus to the next level. Inspired by the hardworking bee, it's time to fly beeyond procrastination and reach your true potential.",
-  "permissions": ["storage", "tabs", "declarativeNetRequest", "notifications", "activeTab", "offscreen"],
+  "permissions": ["storage", "tabs", "declarativeNetRequest", "notifications", "offscreen"],
   "host_permissions": ["<all_urls>"],
   "declarative_net_request": {
     "rule_resources": [
@@ -16,7 +16,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["audio/*.m4a", "audio/*.mp3", "audio/*.wav", "quotes.json", "simple-audio-test.html", "blocked.html", "blocked.js"],
+      "resources": ["audio/*.m4a", "audio/*.mp3", "audio/*.wav", "quotes.json", "blocked.html", "blocked.js"],
       "matches": ["<all_urls>"]
     }
   ],
@@ -29,14 +29,6 @@
   "background": {
     "service_worker": "src/background.js"
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["src/content.js"],
-      "run_at": "document_end",
-      "all_frames": false
-    }
-  ],
   "action": {
     "default_popup": "index.html",
     "default_title": "Beeyond Limits"

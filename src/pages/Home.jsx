@@ -15,9 +15,9 @@ function Home({ onNavigate }) {
         {/* Feature Cards */}
         <div className="space-y-3">
           {/* Pomodoro Timer */}
-          <div
+          <button
             onClick={() => onNavigate("pomodoro")}
-            className="group bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer border border-white/20"
+            className="w-full text-left block group bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer border border-white/20"
           >
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform duration-300">
@@ -29,12 +29,12 @@ function Home({ onNavigate }) {
               </div>
               <div className="text-gray-400 group-hover:text-red-500 transition-colors">→</div>
             </div>
-          </div>
+          </button>
 
           {/* Website Blocker */}
-          <div
+          <button
             onClick={() => onNavigate("websiteblocker")}
-            className="group bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer border border-white/20"
+            className="w-full text-left block group bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer border border-white/20"
           >
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform duration-300">
@@ -46,12 +46,12 @@ function Home({ onNavigate }) {
               </div>
               <div className="text-gray-400 group-hover:text-blue-500 transition-colors">→</div>
             </div>
-          </div>
+          </button>
 
           {/* Task List */}
-          <div
+          <button
             onClick={() => onNavigate("tasklist")}
-            className="group bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer border border-white/20"
+            className="w-full text-left block group bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer border border-white/20"
           >
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform duration-300">
@@ -63,12 +63,12 @@ function Home({ onNavigate }) {
               </div>
               <div className="text-gray-400 group-hover:text-green-500 transition-colors">→</div>
             </div>
-          </div>
+          </button>
 
           {/* Ambient Sound */}
-          <div
+          <button
             onClick={() => onNavigate("ambientsounds")}
-            className="group bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer border border-white/20"
+            className="w-full text-left block group bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer border border-white/20"
           >
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform duration-300">
@@ -82,7 +82,7 @@ function Home({ onNavigate }) {
               </div>
               <div className="text-gray-400 group-hover:text-purple-500 transition-colors">→</div>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Daily Quotes */}
