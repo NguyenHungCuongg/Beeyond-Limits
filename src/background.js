@@ -7,11 +7,11 @@
 
 class BackgroundPomodoroManager {
   constructor() {
-    this.timerId = null;
     this.isActive = false;
     this.isBreak = false;
     this.currentTime = 0;
     this.initialTime = 0;
+    this.phaseEndsAt = null;
     this.focusTime = 25;
     this.breakTime = 5;
     this.sessionCount = 0;
@@ -28,29 +28,30 @@ class BackgroundPomodoroManager {
         const state = result.pomodoroState;
         this.isActive = state.isActive || false;
         this.isBreak = state.isBreak || false;
-        this.currentTime = state.currentTime || this.focusTime * 60;
         this.initialTime = state.initialTime || this.focusTime * 60;
         this.sessionCount = state.sessionCount || 0;
+        this.phaseEndsAt = state.phaseEndsAt || null;
 
-        console.log("Loaded pomodoro state:", state);
+        let loadedCurrentTime = state.currentTime;
+        if (loadedCurrentTime === undefined || loadedCurrentTime === null || loadedCurrentTime === 0) {
+          loadedCurrentTime = this.isBreak ? this.breakTime * 60 : this.focusTime * 60;
+        }
+        this.currentTime = loadedCurrentTime;
 
-        // Only restart timer if it was active
-        if (this.isActive && this.currentTime > 0) {
-          console.log("Restarting timer from saved state");
-          this.startTimer();
-        } else if (this.currentTime === 0 && this.isActive) {
-          // If timer was at 0 but active, it might have been stuck
-          console.log("Timer was stuck at 0, resetting...");
+        if (this.isActive && this.phaseEndsAt) {
+          const remaining = this.phaseEndsAt - Date.now();
+          if (remaining > 0) {
+            chrome.alarms.create("pomodoroTimer", { when: this.phaseEndsAt });
+          } else {
+            this.handleTimerComplete();
+          }
+        } else if (this.isActive && !this.phaseEndsAt) {
           this.isActive = false;
-          this.currentTime = this.isBreak ? this.breakTime * 60 : this.focusTime * 60;
-          this.initialTime = this.currentTime;
           this.saveState();
         }
       } else {
-        // No saved state, initialize with default focus time
         this.currentTime = this.focusTime * 60;
         this.initialTime = this.focusTime * 60;
-        console.log("No saved state, initialized with default values");
       }
 
       if (result.pomodoroSettings) {
@@ -58,7 +59,6 @@ class BackgroundPomodoroManager {
         this.focusTime = settings.focusTime || 25;
         this.breakTime = settings.breakTime || 5;
         this.audioEnabled = settings.audioEnabled !== undefined ? settings.audioEnabled : true;
-        console.log("Loaded pomodoro settings:", settings);
       }
     } catch (error) {
       console.error("Error loading pomodoro state:", error);
@@ -72,10 +72,10 @@ class BackgroundPomodoroManager {
         isBreak: this.isBreak,
         currentTime: this.currentTime,
         initialTime: this.initialTime,
+        phaseEndsAt: this.phaseEndsAt,
         sessionCount: this.sessionCount,
         lastUpdated: Date.now(),
       };
-
       await chrome.storage.local.set({ pomodoroState: state });
       this.notifyStateChange();
     } catch (error) {
@@ -93,70 +93,44 @@ class BackgroundPomodoroManager {
   }
 
   startTimer() {
-    console.log("Starting timer:", { isBreak: this.isBreak, currentTime: this.currentTime });
-
-    if (this.timerId) {
-      clearInterval(this.timerId);
-    }
-
     this.isActive = true;
-    this.timerId = setInterval(() => {
-      this.tick();
-    }, 1000);
-
+    let current = this.currentTime;
+    if (current <= 0) current = this.isBreak ? this.breakTime * 60 : this.focusTime * 60;
+    
+    this.phaseEndsAt = Date.now() + current * 1000;
+    chrome.alarms.create("pomodoroTimer", { when: this.phaseEndsAt });
+    
     this.saveState();
-    console.log("Timer started successfully, isActive:", this.isActive);
   }
 
   pauseTimer() {
-    if (this.timerId) {
-      clearInterval(this.timerId);
-      this.timerId = null;
-    }
-
     this.isActive = false;
+    if (this.phaseEndsAt) {
+      this.currentTime = Math.max(0, Math.floor((this.phaseEndsAt - Date.now()) / 1000));
+      this.phaseEndsAt = null;
+    }
+    chrome.alarms.clear("pomodoroTimer");
     this.saveState();
   }
 
   resetTimer() {
-    if (this.timerId) {
-      clearInterval(this.timerId);
-      this.timerId = null;
-    }
-
     this.isActive = false;
     this.isBreak = false;
     this.currentTime = this.focusTime * 60;
     this.initialTime = this.focusTime * 60;
+    this.phaseEndsAt = null;
     this.sessionCount = 0;
-
+    
+    chrome.alarms.clear("pomodoroTimer");
     this.saveState();
   }
 
-  tick() {
-    if (this.currentTime > 0) {
-      this.currentTime--;
-      this.saveState();
-    } else {
-      console.log("Timer reached 0, handling completion...");
-      this.handleTimerComplete();
-    }
-  }
-
   async handleTimerComplete() {
-    console.log("Timer completed! Current state:", { isBreak: this.isBreak, currentTime: this.currentTime });
-
-    if (this.timerId) {
-      clearInterval(this.timerId);
-      this.timerId = null;
-    }
-
-    // Set inactive temporarily
     this.isActive = false;
+    this.phaseEndsAt = null;
+    chrome.alarms.clear("pomodoroTimer");
 
     if (!this.isBreak) {
-      // Focus time completed, switch to break
-      console.log("Focus time completed, switching to break");
       this.isBreak = true;
       this.currentTime = this.breakTime * 60;
       this.initialTime = this.breakTime * 60;
@@ -165,8 +139,6 @@ class BackgroundPomodoroManager {
       await this.playNotification("break");
       this.showNotification("Great job! Time for a break! 🎉", `Take a ${this.breakTime} minute break.`);
     } else {
-      // Break time completed, switch to focus
-      console.log("Break time completed, switching to focus");
       this.isBreak = false;
       this.currentTime = this.focusTime * 60;
       this.initialTime = this.focusTime * 60;
@@ -175,41 +147,38 @@ class BackgroundPomodoroManager {
       this.showNotification("Break's over! Ready to focus? 💪", `Time for a ${this.focusTime} minute focus session.`);
     }
 
-    // Save state first, then restart timer
     await this.saveState();
-
-    // Auto-start the next timer
-    console.log("Auto-starting next timer phase:", { isBreak: this.isBreak, currentTime: this.currentTime });
     this.startTimer();
   }
 
   async playNotification(context) {
     if (!this.audioEnabled) return;
-
     try {
-      console.log(`Playing notification for context: ${context}`);
-
-      // Get all tabs and try to send audio message
-      const tabs = await chrome.tabs.query({});
-      let audioSent = false;
-
-      for (const tab of tabs) {
-        try {
-          await chrome.tabs.sendMessage(tab.id, {
-            type: "PLAY_POMODORO_AUDIO",
-            context: context,
-          });
-          audioSent = true;
-          console.log(`Audio message sent to tab ${tab.id}`);
-          break; // Stop after first successful send
-        } catch (error) {
-          // Tab might not have content script injected, continue to next tab
-          console.log(`Failed to send to tab ${tab.id}:`, error.message);
+      const ready = await ambientManager.ensureOffscreen();
+      if (ready) {
+        let audioFiles = [];
+        if (context === "break") {
+           audioFiles = ["break_time_1.m4a", "break_time_2.m4a", "break_time_3.m4a"];
+        } else if (context === "focus") {
+           audioFiles = ["focus_time_1.m4a", "focus_time_2.m4a", "focus_time_3.m4a"];
         }
-      }
-
-      if (!audioSent) {
-        console.warn("No tabs available for audio playback - creating notification only");
+        
+        await chrome.runtime.sendMessage({
+          type: "PLAY_POMODORO_AUDIO",
+          audioUrl: chrome.runtime.getURL("audio/pomodoro_alarm.m4a"),
+          target: "offscreen"
+        });
+        
+        if (audioFiles.length > 0) {
+           const selected = audioFiles[Math.floor(Math.random() * audioFiles.length)];
+           setTimeout(async () => {
+             await chrome.runtime.sendMessage({
+                type: "PLAY_POMODORO_AUDIO",
+                audioUrl: chrome.runtime.getURL("audio/" + selected),
+                target: "offscreen"
+             });
+           }, 2000);
+        }
       }
     } catch (error) {
       console.error("Error playing notification:", error);
@@ -258,10 +227,14 @@ class BackgroundPomodoroManager {
   }
 
   getState() {
+    let current = this.currentTime;
+    if (this.isActive && this.phaseEndsAt) {
+      current = Math.max(0, Math.floor((this.phaseEndsAt - Date.now()) / 1000));
+    }
     return {
       isActive: this.isActive,
       isBreak: this.isBreak,
-      currentTime: this.currentTime,
+      currentTime: current,
       initialTime: this.initialTime,
       sessionCount: this.sessionCount,
       focusTime: this.focusTime,
@@ -640,9 +613,19 @@ const ambientManager = new AmbientSoundManager();
 // Initialize Pomodoro Manager
 const pomodoroManager = new BackgroundPomodoroManager();
 
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "pomodoroTimer") {
+    pomodoroManager.handleTimerComplete();
+  }
+});
+
 // Handle messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
+    case "UPDATE_BLOCKING_RULES":
+      updateBlockingRules(message.isBlocking, message.blockedUrls).then(sendResponse);
+      return true;
+
     case "POMODORO_START":
       pomodoroManager.startTimer();
       sendResponse({ success: true });
@@ -668,20 +651,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
 
     case "POMODORO_TEST_AUDIO":
-      console.log("Background received test audio request for:", message.context);
       pomodoroManager.playNotification(message.context);
-
-      // Also try to create a new tab with audio test if no content scripts are available
-      setTimeout(async () => {
-        try {
-          const tabs = await chrome.tabs.query({});
-          let hasContentScript = false;
-
-          for (const tab of tabs) {
-            try {
-              await chrome.tabs.sendMessage(tab.id, { type: "PING" });
-              hasContentScript = true;
-              break;
+      sendResponse({ success: true });
+      break;
             } catch (error) {
               // Tab doesn't have content script
               console.log(`Tab ${tab.id} has no content script:`, error.message);

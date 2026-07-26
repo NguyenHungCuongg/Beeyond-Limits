@@ -16,8 +16,19 @@ function WebsiteBlocker({ onNavigate }) {
   const saveBlockedUrls = useCallback(async (urlsToSave) => {
     try {
       if (chromeStorage && chromeStorage.local) {
-        await chromeStorage.local.set({ blockedUrls: urlsToSave });
-        console.log("[WebsiteBlocker] Saved URLs, triggering background update");
+        const response = await chrome.runtime.sendMessage({
+          type: "UPDATE_BLOCKING_RULES",
+          isBlocking: isBlocking,
+          blockedUrls: urlsToSave
+        });
+        
+        if (response && response.success) {
+          await chromeStorage.local.set({ blockedUrls: urlsToSave });
+          console.log("[WebsiteBlocker] Saved URLs, updated rules");
+        } else {
+          toast.error("Failed to update rules");
+          console.error("Rule update failed:", response?.error);
+        }
       } else {
         // Fallback for development
         localStorage.setItem("beeyond-blocked-urls", JSON.stringify(urlsToSave));
@@ -25,7 +36,7 @@ function WebsiteBlocker({ onNavigate }) {
     } catch (error) {
       console.error("Error saving blocked URLs:", error);
     }
-  }, []);
+  }, [isBlocking]);
 
   // Load blocked URLs from Chrome storage
   const loadBlockedUrls = useCallback(async () => {
@@ -102,17 +113,34 @@ function WebsiteBlocker({ onNavigate }) {
 
   // Validate URL format
   const isValidUrl = (url) => {
-    const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
-    return urlPattern.test(url);
+    try {
+      let urlStr = url.trim();
+      if (!urlStr.startsWith('http')) {
+        urlStr = 'http://' + urlStr;
+      }
+      const urlObj = new URL(urlStr);
+      return urlObj.hostname.includes('.');
+    } catch (e) {
+      return false;
+    }
   };
 
   // Clean URL (remove protocol, www, trailing slash)
   const cleanUrl = (url) => {
-    return url
-      .replace(/^https?:\/\//, "")
-      .replace(/^www\./, "")
-      .replace(/\/$/, "")
-      .toLowerCase();
+    try {
+      let urlStr = url.trim();
+      if (!urlStr.startsWith('http')) {
+        urlStr = 'http://' + urlStr;
+      }
+      const urlObj = new URL(urlStr);
+      let hostname = urlObj.hostname.toLowerCase();
+      if (hostname.startsWith('www.')) {
+        hostname = hostname.substring(4);
+      }
+      return hostname;
+    } catch (e) {
+      return url.toLowerCase().trim();
+    }
   };
 
   const addBlockedUrl = async () => {
@@ -151,16 +179,24 @@ function WebsiteBlocker({ onNavigate }) {
 
   const toggleBlocking = async () => {
     const newStatus = !isBlocking;
-    setIsBlocking(newStatus);
     try {
       if (chromeStorage && chromeStorage.local) {
-        await chromeStorage.local.set({ isBlocking: newStatus });
-        // Force trigger background script update
-        console.log("[WebsiteBlocker] Blocking status changed to:", newStatus);
-        setTimeout(() => {
-          console.log("[WebsiteBlocker] Storage should be updated now");
-        }, 100);
+        const response = await chrome.runtime.sendMessage({
+          type: "UPDATE_BLOCKING_RULES",
+          isBlocking: newStatus,
+          blockedUrls: blockedUrls
+        });
+        
+        if (response && response.success) {
+          setIsBlocking(newStatus);
+          await chromeStorage.local.set({ isBlocking: newStatus });
+          console.log("[WebsiteBlocker] Blocking status changed to:", newStatus);
+        } else {
+          toast.error("Failed to update blocking rules");
+          console.error("Rule update failed:", response?.error);
+        }
       } else {
+        setIsBlocking(newStatus);
         localStorage.setItem("beeyond-blocking-status", newStatus.toString());
       }
     } catch (error) {
