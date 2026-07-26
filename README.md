@@ -2,7 +2,7 @@
 
 **Tăng cường năng suất với công cụ quản lý thời gian và tập trung toàn diện**
 
-Beeyond Limits là một Chrome Extension được thiết kế để giúp bạn vượt qua sự phân tâm và đẩy khả năng tập trung lên tầm cao mới. Lấy cảm hứng từ loài 벌 cần cù, đã đến lúc bay vượt qua sự trì hoãn và đạt được tiềm năng thực sự của bạn.
+Beeyond Limits là một Chrome Extension được thiết kế để giúp bạn vượt qua sự phân tâm và đẩy khả năng tập trung lên tầm cao mới. Lấy cảm hứng từ loài ong(Bee) cần cù, đã đến lúc bay vượt qua sự trì hoãn và đạt được tiềm năng thực sự của bạn.
 
 ![Beeyond Limits Logo](./public/images/beeyond-limits-logo.png)
 
