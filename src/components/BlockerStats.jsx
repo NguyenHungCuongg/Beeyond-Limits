@@ -1,26 +1,26 @@
 import React from "react";
+import { Lock, Unlock } from "./Icons";
 
 function BlockerStats({ blockedUrls, isBlocking, blocksToday = 0 }) {
   return (
-    <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30">
-      <div className="text-center text-white mb-3">
-        <h3 className="font-medium text-sm opacity-80">Blocking Stats</h3>
+    <div className="bg-paper brutal-border brutal-shadow-sm divide-x-[3px] divide-ink grid grid-cols-3 text-center mb-6">
+      <div className="flex flex-col items-center justify-center p-4">
+        <div className="font-display text-4xl text-ink">{blockedUrls.length}</div>
+        <div className="font-mono text-xs text-ink font-bold uppercase mt-1">Sites</div>
       </div>
-      <div className="flex justify-between items-center text-white">
-        <div className="text-center flex-1">
-          <div className="text-lg font-bold">{blockedUrls.length}</div>
-          <div className="text-xs opacity-80">Sites Blocked</div>
+      <div className="flex flex-col items-center justify-center p-4 bg-emerald">
+        <div className="font-display text-4xl text-ink h-10 flex items-center justify-center">
+          {isBlocking ? (
+            <Lock size={24} className="text-ink" />
+          ) : (
+            <Unlock size={24} className="text-ink" />
+          )}
         </div>
-        <div className="w-px h-8 bg-white/30"></div>
-        <div className="text-center flex-1">
-          <div className="text-lg font-bold">{isBlocking ? "🔒" : "🔓"}</div>
-          <div className="text-xs opacity-80">Status</div>
-        </div>
-        <div className="w-px h-8 bg-white/30"></div>
-        <div className="text-center flex-1">
-          <div className="text-lg font-bold">{blocksToday}</div>
-          <div className="text-xs opacity-80">Blocks Today</div>
-        </div>
+        <div className="font-mono text-xs text-ink font-bold uppercase mt-1">Status</div>
+      </div>
+      <div className="flex flex-col items-center justify-center p-4">
+        <div className="font-display text-4xl text-ink">{blocksToday}</div>
+        <div className="font-mono text-xs text-ink font-bold uppercase mt-1">Blocks</div>
       </div>
     </div>
   );

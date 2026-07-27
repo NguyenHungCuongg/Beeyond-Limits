@@ -19,14 +19,13 @@ function NumberSlider({
     onChange(newValue);
   };
 
-  // Calculate progress percentage based on range
   const progress = ((value - min) / (max - min)) * 100;
 
   return (
-    <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30">
+    <div className="bg-paper brutal-border brutal-shadow-sm p-4 mb-4">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-white font-medium">{label}</span>
-        <span className="text-white font-bold">
+        <span className="font-mono font-bold uppercase text-ink">{label}</span>
+        <span className="font-display text-2xl text-mustard leading-none">
           {value} {unit}
         </span>
       </div>
@@ -37,31 +36,20 @@ function NumberSlider({
           aria-label={`Decrease ${label}`}
           onClick={handleDecrease}
           disabled={value <= min}
-          className={`w-8 h-8 rounded-lg flex items-center justify-center text-white transition-colors ${
+          className={`w-8 h-8 flex items-center justify-center brutal-border brutal-shadow-sm bg-canvas font-bold transition-colors ${
             value <= min
-              ? "bg-white/10 opacity-50 cursor-not-allowed"
-              : "bg-white/20 hover:bg-white/30"
+              ? "opacity-50 cursor-not-allowed"
+              : "hover:bg-mustard cursor-pointer active:translate-y-[2px] active:shadow-none"
           }`}
         >
           −
         </button>
 
-        <div className="flex-1 bg-white/10 rounded-lg h-2 relative overflow-hidden">
+        <div className="flex-1 border-[3px] border-ink bg-canvas h-4 relative overflow-hidden">
           <div
-            className="bg-white rounded-lg h-full transition-all duration-300 ease-out"
+            className="bg-mustard h-full transition-all duration-300 ease-out border-r-[3px] border-ink"
             style={{ width: `${progress}%` }}
           ></div>
-
-          {/* Optional: Add tick marks for visual reference */}
-          <div className="absolute inset-0 flex items-center">
-            {[...Array(5)].map((_, i) => (
-              <div
-                key={i}
-                className="h-1 w-px bg-white/20"
-                style={{ marginLeft: i === 0 ? "0" : `${100 / 4}%` }}
-              />
-            ))}
-          </div>
         </div>
 
         <button
@@ -69,26 +57,14 @@ function NumberSlider({
           aria-label={`Increase ${label}`}
           onClick={handleIncrease}
           disabled={value >= max}
-          className={`w-8 h-8 rounded-lg flex items-center justify-center text-white transition-colors ${
+          className={`w-8 h-8 flex items-center justify-center brutal-border brutal-shadow-sm bg-canvas font-bold transition-colors ${
             value >= max
-              ? "bg-white/10 opacity-50 cursor-not-allowed"
-              : "bg-white/20 hover:bg-white/30"
+              ? "opacity-50 cursor-not-allowed"
+              : "hover:bg-mustard cursor-pointer active:translate-y-[2px] active:shadow-none"
           }`}
         >
           +
         </button>
-      </div>
-
-      {/* Optional: Show range info */}
-      <div className="flex justify-between mt-2 text-xs text-white/60">
-        <span>
-          {min}
-          {unit}
-        </span>
-        <span>
-          {max}
-          {unit}
-        </span>
       </div>
     </div>
   );

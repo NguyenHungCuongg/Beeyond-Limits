@@ -31,10 +31,28 @@ function App() {
   };
 
   return (
-    <div className="w-[400px] items-center justify-center overflow-hidden">
-      {/* Content area - đây là nội dung thực sự của extension */}
+    <div className="w-[400px] min-h-[600px] bg-canvas overflow-hidden">
+      {/* Content area */}
       {renderPage()}
-      <Toaster />
+      <Toaster
+        toastOptions={{
+          style: {
+            background: "#ffffff",
+            color: "#000000",
+            border: "3px solid #000000",
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: "0.875rem",
+            boxShadow: "4px 4px 0px 0px #000000",
+            borderRadius: "0",
+          },
+          success: {
+            iconTheme: { primary: "#000000", secondary: "#ffffff" },
+          },
+          error: {
+            iconTheme: { primary: "#000000", secondary: "#ffffff" },
+          },
+        }}
+      />
     </div>
   );
 }

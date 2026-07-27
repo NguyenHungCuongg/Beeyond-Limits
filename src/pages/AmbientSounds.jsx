@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import { Feather, Flame, Waves, CloudRain, Zap, Wind, ChevronLeft, Home, Play, VolumeX } from "../components/Icons";
 
 /* global chrome */
 
 const extensionApi = typeof chrome !== "undefined" ? chrome : null;
 const SOUND_METADATA = Object.freeze({
-  bird: { name: "Birds", icon: "🐦" },
-  campfire: { name: "Campfire", icon: "🔥" },
-  ocean_waves: { name: "Ocean Waves", icon: "🌊" },
-  rain: { name: "Rain", icon: "🌧️" },
-  thunder: { name: "Thunder", icon: "⛈️" },
-  wind: { name: "Wind", icon: "🌬️" },
+  bird: { name: "Birds", Icon: Feather },
+  campfire: { name: "Campfire", Icon: Flame },
+  ocean_waves: { name: "Ocean Waves", Icon: Waves },
+  rain: { name: "Rain", Icon: CloudRain },
+  thunder: { name: "Thunder", Icon: Zap },
+  wind: { name: "Wind", Icon: Wind },
 });
 
 function mergeSettings(settings = {}) {
@@ -145,123 +146,102 @@ function AmbientSounds({ onNavigate }) {
   }
 
   return (
-    <div className="h-full overflow-auto bg-gradient-to-br from-purple-500 via-violet-500 to-purple-600 font-primary">
-      <div className="p-6">
-        <div className="mb-6 flex flex-col items-start">
-          <button
-            type="button"
-            onClick={() => onNavigate("home")}
-            aria-label="Back to home"
-            className="mr-4 flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-sm transition-colors hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-          >
-            ←
-          </button>
-          <div className="flex-1 self-center text-center">
-            <h1 className="text-2xl font-bold text-white drop-shadow-lg">
-              Ambient Sounds
-            </h1>
-            <p className="text-sm text-purple-100">
-              Nature sounds to enhance your focus 🎵
-            </p>
-          </div>
-        </div>
+    <div className="min-h-screen bg-canvas text-ink p-5 overflow-auto">
+      <div className="mb-6 flex flex-col items-start">
+        <button
+          type="button"
+          onClick={() => onNavigate("home")}
+          aria-label="Back to home"
+          className="flex items-center gap-1.5 text-ink font-mono uppercase font-bold hover:bg-ink hover:text-canvas px-2 py-1 border-[3px] border-transparent hover:border-ink transition-colors mb-4"
+        >
+          <ChevronLeft size={16} /> Back
+        </button>
+        <h1 className="font-display text-6xl uppercase tracking-tight leading-none mb-2 text-ink">
+          Ambient Sounds
+        </h1>
+      </div>
 
-        <div className="mb-6 space-y-4">
-          {Object.entries(sounds).map(([soundKey, sound]) => (
-            <section
-              key={soundKey}
-              aria-labelledby={`${soundKey}-name`}
-              className="rounded-xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm"
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div aria-hidden="true" className="text-2xl text-white">
-                    {sound.icon}
-                  </div>
-                  <div>
-                    <h2
-                      id={`${soundKey}-name`}
-                      className="font-medium text-white"
-                    >
-                      {sound.name}
-                    </h2>
-                    <div className="text-xs text-white/70">
-                      Volume: {sound.volume}%
-                    </div>
-                  </div>
+      <div className="space-y-4">
+        {Object.entries(sounds).map(([soundKey, sound]) => (
+          <section
+            key={soundKey}
+            aria-labelledby={`${soundKey}-name`}
+            className="bg-paper brutal-border brutal-shadow-sm p-4 mb-3 flex flex-col"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 brutal-border bg-emerald flex items-center justify-center shrink-0">
+                  <sound.Icon size={20} className="text-ink" />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => testSound(soundKey)}
-                    aria-label={`Test ${sound.name} sound`}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 text-sm text-white backdrop-blur-sm transition-colors hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                  >
-                    ▶️
-                  </button>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={sound.enabled}
-                    aria-label={`${sound.name} ambient sound`}
-                    disabled={isSaving}
-                    onClick={() => toggleSound(soundKey)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 ${
-                      sound.enabled ? "bg-white" : "bg-white/30"
-                    }`}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`inline-block h-4 w-4 transform rounded-full bg-purple-500 transition ${
-                        sound.enabled ? "translate-x-6" : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </div>
+                <h2
+                  id={`${soundKey}-name`}
+                  className="font-display text-3xl uppercase text-ink"
+                >
+                  {sound.name}
+                </h2>
               </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => testSound(soundKey)}
+                  aria-label={`Test ${sound.name} sound`}
+                  className="w-8 h-8 brutal-border bg-canvas flex items-center justify-center text-ink hover:bg-emerald transition-colors"
+                >
+                  <Play size={16} className="fill-ink" />
+                </button>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={sound.enabled}
+                  aria-label={`${sound.name} ambient sound`}
+                  disabled={isSaving}
+                  onClick={() => toggleSound(soundKey)}
+                  className={`w-8 h-8 brutal-border flex items-center justify-center transition-colors disabled:opacity-60 ${
+                    sound.enabled ? "bg-crimson text-white" : "bg-canvas text-transparent"
+                  }`}
+                >
+                  <div className={`w-4 h-4 bg-ink ${sound.enabled ? 'block' : 'hidden'}`}></div>
+                </button>
+              </div>
+            </div>
 
-              <label
-                htmlFor={`${soundKey}-volume`}
-                className="mb-2 flex items-center justify-between text-xs text-white/70"
-              >
-                <span>Volume</span>
-                <span>{sound.volume}%</span>
-              </label>
-              <input
-                id={`${soundKey}-volume`}
-                type="range"
-                min="0"
-                max="100"
-                value={sound.volume}
-                onChange={(event) =>
-                  changeVolume(soundKey, Number(event.target.value))
-                }
-                className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                style={{
-                  background: `linear-gradient(to right, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.8) ${sound.volume}%, rgba(255,255,255,0.2) ${sound.volume}%, rgba(255,255,255,0.2) 100%)`,
-                }}
-              />
-            </section>
-          ))}
-        </div>
+            <label
+              htmlFor={`${soundKey}-volume`}
+              className="sr-only"
+            >
+              Volume
+            </label>
+            <input
+              id={`${soundKey}-volume`}
+              type="range"
+              min="0"
+              max="100"
+              value={sound.volume}
+              onChange={(event) =>
+                changeVolume(soundKey, Number(event.target.value))
+              }
+              className="w-full h-4 bg-canvas brutal-border appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-8 [&::-webkit-slider-thumb]:bg-ink [&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-black"
+            />
+          </section>
+        ))}
+      </div>
 
-        <div className="space-y-3">
-          <button
-            type="button"
-            disabled={isSaving}
-            onClick={stopAllSounds}
-            className="w-full rounded-xl border-2 border-white/30 bg-white/20 py-4 font-bold text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:cursor-wait disabled:opacity-60"
-          >
-            🔇 Stop All Sounds
-          </button>
-          <button
-            type="button"
-            onClick={() => onNavigate("home")}
-            className="w-full rounded-xl border border-white/20 bg-white/10 py-3 font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-          >
-            🏠 Home
-          </button>
-        </div>
+      <div className="space-y-4 mt-8">
+        <button
+          type="button"
+          disabled={isSaving}
+          onClick={stopAllSounds}
+          className="bg-ink text-paper brutal-border font-display text-2xl uppercase py-3 w-full hover:bg-crimson hover:text-ink hover:brutal-shadow-sm transition-all"
+        >
+          Stop All Sounds
+        </button>
+        <button
+          type="button"
+          onClick={() => onNavigate("home")}
+          className="bg-paper text-ink brutal-border font-display text-2xl uppercase py-3 w-full flex items-center justify-center gap-2 hover:bg-emerald hover:brutal-shadow-sm transition-all"
+        >
+          <Home size={20} /> Home
+        </button>
       </div>
     </div>
   );

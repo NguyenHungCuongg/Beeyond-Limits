@@ -1,27 +1,133 @@
 @import "tailwindcss";
 
-/* CSS Variables */
-:root {
-  /* Brand Colors */
-  --primary: #efb036;
-  --primary-light: #f0ba33;
-  --primary-dark: #dea039;
-  --secondary: #3b6790;
-  --secondary-dark: #23486a;
-  --accent: #4c7b8b;
-  --cream: #f7f4ef;
-  --brown: #573625;
+/* ── Carnival / Neo-Brutalist Design System ─────────────────────────── */
 
+@theme {
+  /* Vibrant brutalist palette */
+  --color-canvas: #f2e9e1; /* pale peach background */
+  --color-ink: #0d0c0c; /* sharp black */
+  --color-paper: #ffffff;
+  
+  --color-mustard: #eeba0b;
+  --color-crimson: #9e1414;
+  --color-sapphire: #1e3a8a;
+  --color-emerald: #147a42;
+  --color-lavender: #b19cd9;
+  
   /* Typography */
-  --font-primary: "Montserrat", sans-serif;
-  --font-secondary: "Open Sans", sans-serif;
+  --font-display: "Anton", "Impact", sans-serif;
+  --font-sans: "Outfit", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
-/* Custom Font Classes (không trùng với Tailwind) */
-.font-primary {
-  font-family: var(--font-primary);
+/* ── Base ──────────────────────────────────────────────────── */
+
+html {
+  scroll-behavior: smooth;
 }
 
-.font-secondary {
-  font-family: var(--font-secondary);
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+/* ── Typography utilities ─────────────────────────────────── */
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+h1, h2, h3 {
+  text-wrap: balance;
+}
+p {
+  text-wrap: pretty;
+}
+
+/* ── Neo-Brutalist structural utilities ───────────────────── */
+
+.brutal-border {
+  border: 3px solid var(--color-ink);
+}
+.brutal-border-light {
+  border: 3px solid var(--color-paper);
+}
+
+.brutal-shadow {
+  box-shadow: 4px 4px 0px 0px var(--color-ink);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+/* Active state pushes the button down into its shadow */
+.brutal-shadow:active:not(:disabled),
+button.brutal-shadow:active:not(:disabled) {
+  box-shadow: 0px 0px 0px 0px var(--color-ink);
+  transform: translate(4px, 4px);
+}
+
+.brutal-shadow-sm {
+  box-shadow: 2px 2px 0px 0px var(--color-ink);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.brutal-shadow-sm:active:not(:disabled) {
+  box-shadow: 0px 0px 0px 0px var(--color-ink);
+  transform: translate(2px, 2px);
+}
+
+/* Halftone pattern blocks (like the image) */
+.halftone-dark {
+  background-image: radial-gradient(var(--color-ink) 25%, transparent 25%);
+  background-size: 8px 8px;
+  background-position: 0 0;
+}
+
+.halftone-light {
+  background-image: radial-gradient(var(--color-paper) 25%, transparent 25%);
+  background-size: 8px 8px;
+  background-position: 0 0;
+}
+
+/* ── Range slider ─────────────────────────────────────────── */
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  height: 24px;
+}
+input[type="range"]::-webkit-slider-track {
+  height: 8px;
+  border: 2px solid var(--color-ink);
+  background: var(--color-paper);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 24px;
+  background: var(--color-mustard);
+  margin-top: -10px;
+  border: 2px solid var(--color-ink);
+  box-shadow: 2px 2px 0px 0px var(--color-ink);
+  border-radius: 0; /* Square brutalist thumb */
+}
+input[type="range"]:active::-webkit-slider-thumb {
+  box-shadow: 0px 0px 0px 0px var(--color-ink);
+  transform: translate(2px, 2px);
+}
+
+/* ── Scrollbar ────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-canvas);
+  border-left: 2px solid var(--color-ink);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink);
 }

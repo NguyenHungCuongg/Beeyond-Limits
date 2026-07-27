@@ -47,36 +47,27 @@ function DailyQuote() {
 
   if (loading) {
     return (
-      <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30">
-        <div className="text-center">
-          <div className="text-2xl mb-2">💭</div>
-          <div className="text-white/70 text-sm">Loading daily inspiration...</div>
-        </div>
+      <div className="bg-paper brutal-border brutal-shadow p-5 flex flex-col items-center justify-center min-h-[100px]">
+        <div className="font-mono font-bold text-ink text-sm uppercase">Loading inspiration...</div>
       </div>
     );
   }
 
   if (error && !quote) {
     return (
-      <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30">
-        <div className="text-center">
-          <div className="text-2xl mb-2">💫</div>
-          <div className="text-white/70 text-sm">Inspiration will be with you soon!</div>
-        </div>
+      <div className="bg-paper brutal-border brutal-shadow p-5 flex flex-col items-center justify-center min-h-[100px]">
+        <div className="font-mono font-bold text-ink text-sm uppercase">Inspiration will be with you soon!</div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30">
-      <div className="text-center">
-        <div className="text-2xl mb-3">💭</div>
-        <h3 className="text-white font-medium text-sm mb-3">Daily Inspiration</h3>
-
-        <div className="space-y-2">
-          <p className="text-white/90 text-sm italic leading-relaxed">{quote.text}</p>
-          <p className="text-white/70 text-xs font-medium">{quote.author}</p>
-        </div>
+    <div className="bg-paper brutal-border brutal-shadow p-5">
+      <div className="font-display text-3xl uppercase leading-tight text-ink">
+        {quote.text}
+      </div>
+      <div className="font-mono font-bold mt-2 text-ink">
+        {quote.author}
       </div>
     </div>
   );

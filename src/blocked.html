@@ -1,50 +1,65 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Blocked by Beeyond Limits</title>
+  <title>Blocked — Beeyond Limits</title>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      margin: 0;
+      background: #9e1414;
+      color: #ffffff;
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
-      color: white;
       text-align: center;
+      -webkit-font-smoothing: antialiased;
+    }
+    .brutal-box {
+      background: #ffffff;
+      color: #0d0c0c;
+      border: 4px solid #0d0c0c;
+      box-shadow: 8px 8px 0px 0px #0d0c0c;
+      padding: 3rem;
+      max-width: 500px;
     }
     h1 {
-      font-size: 2.5rem;
+      font-family: 'Anton', sans-serif;
+      font-size: 5rem;
+      text-transform: uppercase;
+      line-height: 1;
       margin-bottom: 1rem;
     }
-    p {
-      font-size: 1.2rem;
-      opacity: 0.9;
-    }
-    .emoji {
-      font-size: 4rem;
-      margin-bottom: 1rem;
-    }
-    .domain {
-      background: rgba(255,255,255,0.2);
+    .domain-badge {
+      border: 2px solid #0d0c0c;
+      background: #eeba0b;
       padding: 0.5rem 1rem;
-      border-radius: 0.5rem;
-      margin: 1rem 0;
       font-family: monospace;
-      font-size: 1.1rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      font-size: 1.2rem;
+      display: inline-block;
+      box-shadow: 4px 4px 0px 0px #0d0c0c;
+      margin-bottom: 2rem;
+    }
+    .subtitle {
+      font-family: monospace;
+      font-size: 1rem;
+      font-weight: bold;
+      text-transform: uppercase;
     }
   </style>
 </head>
 <body>
-  <div>
-    <div class="emoji">🐝</div>
-    <h1>Website Blocked!</h1>
-    <p>This website has been blocked by Beeyond Limits</p>
-    <div class="domain" id="blocked-domain">...</div>
-    <p>Stay focused and bee productive! 🚀</p>
-    <p><small>You can disable blocking in the extension popup</small></p>
+  <div class="brutal-box">
+    <h1>BLOCKED.</h1>
+    <div class="domain-badge" id="blocked-domain">...</div>
+    <p class="subtitle">GET BACK TO WORK.</p>
   </div>
   <script src="blocked.js"></script>
 </body>

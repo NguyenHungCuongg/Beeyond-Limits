@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Task from "../components/Task";
 import TaskStats from "../components/TaskStats";
+import { ChevronLeft, Loader, ClipboardCheck, Trash, Home } from "../components/Icons";
 
 // eslint-disable-next-line no-undef
 const chromeStorage = typeof chrome !== "undefined" ? chrome.storage : null;
@@ -138,92 +139,80 @@ function TaskList({ onNavigate }) {
   const activeTasks = totalTasks - completedTasks;
 
   return (
-    <div className="h-full bg-gradient-to-br from-green-500 via-emerald-500 to-green-600 font-primary overflow-auto">
-      <div className="p-6">
-        {/* Header với back button */}
-        <div className="flex flex-col items-start mb-6">
+    <div className="bg-canvas min-h-screen text-ink p-5">
+      <div className="max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="mb-6 flex flex-col items-start">
           <button
             onClick={() => onNavigate("home")}
-            className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-white hover:bg-white/30 transition-colors mr-4"
+            className="flex items-center gap-1.5 font-mono font-bold uppercase hover:opacity-70 transition-opacity mb-4"
           >
-            ←
+            <ChevronLeft size={16} /> Back
           </button>
-          <div className="flex-1 text-center self-center">
-            <h1 className="text-2xl font-bold text-white drop-shadow-lg">Task Manager</h1>
-            <p className="text-green-100 text-sm">Organize your goals, bee productive!</p>
+          <div className="flex-1">
+            <h1 className="font-display text-6xl uppercase">Task Manager</h1>
           </div>
         </div>
 
-        {/* Add New Task */}
-        <div className="mb-6 bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30">
-          <div className="flex space-x-3">
-            <input
-              type="text"
-              value={newTaskText}
-              onChange={(e) => setNewTaskText(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="What needs to be done?"
-              className="flex-1 bg-white/90 backdrop-blur-sm border-0 rounded-lg px-4 py-3 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50"
-            />
-            <button
-              onClick={addTask}
-              disabled={!newTaskText.trim()}
-              className={`px-6 py-3 rounded-lg font-medium transition-all duration-300 ${
-                newTaskText.trim()
-                  ? "bg-white text-green-600 hover:bg-green-50 shadow-lg hover:scale-105"
-                  : "bg-white/50 text-gray-400 cursor-not-allowed"
-              }`}
-            >
-              Add
-            </button>
-          </div>
+        {/* Form */}
+        <div className="flex gap-2 mb-6">
+          <input
+            type="text"
+            value={newTaskText}
+            onChange={(e) => setNewTaskText(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="What needs to be done?"
+            className="flex-1 brutal-border brutal-shadow-sm px-4 py-3 bg-paper font-mono focus:outline-none focus:bg-canvas placeholder:text-ink/50 uppercase"
+          />
+          <button
+            onClick={addTask}
+            disabled={!newTaskText.trim()}
+            className="bg-sapphire text-paper brutal-border brutal-shadow-sm px-5 font-display text-2xl uppercase hover:bg-ink transition-colors disabled:opacity-50"
+          >
+            Add
+          </button>
         </div>
 
         {/* Filter Tabs */}
-        <div className="mb-6">
-          <div className="inline-flex bg-white/20 backdrop-blur-sm rounded-full p-1">
-            {["all", "active", "completed"].map((filterType) => (
-              <button
-                key={filterType}
-                onClick={() => setFilter(filterType)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all capitalize ${
-                  filter === filterType ? "bg-white text-green-600 shadow-lg" : "text-white hover:text-green-100"
-                }`}
-              >
-                {filterType}
-                {filterType === "all" && ` (${totalTasks})`}
-                {filterType === "active" && ` (${activeTasks})`}
-                {filterType === "completed" && ` (${completedTasks})`}
-              </button>
-            ))}
+        <div className="mb-6 flex">
+          <div className="flex">
+            {["all", "active", "completed"].map((filterType, index, arr) => {
+              const isActive = filter === filterType;
+              const isLast = index === arr.length - 1;
+              return (
+                <button
+                  key={filterType}
+                  onClick={() => setFilter(filterType)}
+                  className={`brutal-border font-mono font-bold uppercase text-xs py-2 px-3 ${
+                    !isLast ? "border-r-0" : ""
+                  } ${isActive ? "bg-ink text-paper" : "bg-paper text-ink hover:bg-canvas"}`}
+                >
+                  {filterType}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Tasks List */}
-        <div className="space-y-3 mb-6">
+        <div className="mb-6">
           {isLoading ? (
             <div className="text-center py-12">
-              <div className="text-4xl mb-4 animate-bounce">⏳</div>
-              <h3 className="text-white text-lg font-medium mb-2">Loading your tasks...</h3>
-              <p className="text-white/80 text-sm">Just a moment while we fetch your data</p>
+              <Loader size={32} className="mx-auto mb-4 animate-spin text-ink" />
+              <h3 className="font-display text-3xl uppercase">Loading</h3>
             </div>
           ) : filteredTasks.length > 0 ? (
             filteredTasks.map((task) => (
               <Task key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onEdit={editTask} />
             ))
           ) : (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">📝</div>
-              <h3 className="text-white text-lg font-medium mb-2">
+            <div className="text-center py-12 bg-paper brutal-border brutal-shadow-sm p-6">
+              <ClipboardCheck size={64} className="mx-auto mb-4 text-ink" />
+              <h3 className="font-display text-3xl uppercase">
                 {filter === "completed" && completedTasks === 0 && "No completed tasks yet"}
-                {filter === "active" && activeTasks === 0 && "All tasks completed! 🎉"}
+                {filter === "active" && activeTasks === 0 && "All tasks completed!"}
                 {filter === "all" && totalTasks === 0 && "No tasks yet"}
               </h3>
-              <p className="text-white/80 text-sm">
-                {filter === "all" && "Add your first task to get started!"}
-                {filter === "active" && "Time to celebrate your productivity!"}
-                {filter === "completed" && "Complete some tasks to see them here."}
-              </p>
             </div>
           )}
         </div>
@@ -233,9 +222,9 @@ function TaskList({ onNavigate }) {
           <div className="mb-6">
             <button
               onClick={clearCompleted}
-              className="w-full bg-white/10 backdrop-blur-sm text-white font-medium py-3 rounded-xl border border-white/20 hover:bg-white/20 transition-colors"
+              className="w-full flex items-center justify-center gap-2 bg-paper text-ink font-mono font-bold uppercase py-3 brutal-border brutal-shadow-sm hover:bg-canvas transition-colors"
             >
-              🧹 Clear {completedTasks} Completed Task{completedTasks !== 1 ? "s" : ""}
+              <Trash size={16} /> Clear {completedTasks} Completed
             </button>
           </div>
         )}
@@ -244,14 +233,12 @@ function TaskList({ onNavigate }) {
         <TaskStats tasks={tasks} />
 
         {/* Home Button */}
-        <div className="mt-6">
-          <button
-            onClick={() => onNavigate("home")}
-            className="w-full bg-white/10 backdrop-blur-sm text-white font-medium py-3 rounded-xl border border-white/20 hover:bg-white/20 transition-colors"
-          >
-            🏠 Back to Home
-          </button>
-        </div>
+        <button
+          onClick={() => onNavigate("home")}
+          className="w-full flex items-center justify-center gap-2 bg-paper text-ink font-mono font-bold uppercase py-3 brutal-border brutal-shadow-sm hover:bg-canvas transition-colors mt-6"
+        >
+          <Home size={16} /> Back to Home
+        </button>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import React from "react";
+import { Ban, Lock, X } from "./Icons";
 
 function BlockedURL({ blockedUrl, onRemove }) {
-  // Extract domain name for display
   const getDomain = (url) => {
     try {
       const urlObj = new URL(
@@ -16,38 +16,25 @@ function BlockedURL({ blockedUrl, onRemove }) {
   const domain = getDomain(blockedUrl.url);
 
   return (
-    <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 group">
+    <div className="bg-paper brutal-border brutal-shadow-sm p-3 flex justify-between items-center mb-3">
       <div className="flex items-center space-x-3">
-        {/* Favicon Placeholder */}
-        <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
-          <span className="text-lg">🚫</span>
+        <div className="w-9 h-9 border-[3px] border-black bg-crimson flex items-center justify-center shrink-0">
+          <Ban size={16} className="text-white" />
         </div>
-
-        {/* URL Info */}
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-800 truncate">{domain}</h3>
-          <p className="text-xs text-gray-500 truncate">{blockedUrl.url}</p>
-          <div className="flex items-center space-x-2 mt-1">
-            <div className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">
-              🔒 Blocked
-            </div>
-            <span className="text-xs text-gray-400">
-              Added {new Date(blockedUrl.createdAt).toLocaleDateString()}
-            </span>
-          </div>
+          <h3 className="font-sans font-bold text-lg uppercase text-ink truncate">{domain}</h3>
+          <p className="font-mono text-xs text-ink truncate uppercase">{blockedUrl.url}</p>
         </div>
-
-        {/* Remove Button */}
-        <button
-          type="button"
-          onClick={() => onRemove(blockedUrl.id)}
-          aria-label={`Remove ${domain} from blocklist`}
-          className="w-8 h-8 bg-red-100 hover:bg-red-200 rounded-lg flex items-center justify-center text-red-600 hover:text-red-700 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-          title="Remove from blocklist"
-        >
-          ×
-        </button>
       </div>
+      <button
+        type="button"
+        onClick={() => onRemove(blockedUrl.id)}
+        aria-label={`Remove ${domain} from blocklist`}
+        className="w-8 h-8 brutal-border bg-canvas flex items-center justify-center text-ink hover:bg-crimson hover:text-white transition-colors brutal-shadow-sm"
+        title="Remove from blocklist"
+      >
+        <X size={16} />
+      </button>
     </div>
   );
 }

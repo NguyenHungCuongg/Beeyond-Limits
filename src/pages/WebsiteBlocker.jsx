@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import BlockedURL from "../components/BlockedURL";
 import BlockerStats from "../components/BlockerStats";
 import { normalizeDomain, sanitizeBlockedUrls } from "../core/blocking";
+import { ChevronLeft, ShieldCheck, Globe, Loader, Home } from "../components/Icons";
 
 /* global chrome */
 
@@ -139,114 +140,98 @@ function WebsiteBlocker({ onNavigate }) {
   }
 
   return (
-    <div className="h-full overflow-auto bg-gradient-to-br from-blue-500 via-indigo-500 to-blue-600 font-primary">
-      <div className="p-6">
-        <div className="mb-6 flex flex-col items-start">
-          <button
-            type="button"
-            onClick={() => onNavigate("home")}
-            aria-label="Back to home"
-            className="mr-4 flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-sm transition-colors hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-          >
-            ←
-          </button>
-          <div className="flex-1 self-center text-center">
-            <h1 className="text-2xl font-bold text-white drop-shadow-lg">
-              Website Blocker
-            </h1>
-            <p className="text-sm text-blue-100">
-              Block distracting websites to stay focused!
-            </p>
-          </div>
-        </div>
-
-        <div className="mb-6 rounded-xl border border-white/30 bg-white/20 p-4 backdrop-blur-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div aria-hidden="true" className="text-2xl">
-                🛡️
-              </div>
-              <div>
-                <h2 className="font-semibold text-white">Website Blocking</h2>
-                <p className="text-sm text-blue-100" aria-live="polite">
-                  {isBlocking
-                    ? "Currently blocking distracting sites"
-                    : "Blocking is disabled"}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isBlocking}
-              aria-label="Website blocking"
-              disabled={isSaving}
-              onClick={() => persistConfiguration(!isBlocking, blockedUrls)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 ${
-                isBlocking ? "bg-green-500" : "bg-white/30"
-              }`}
-            >
-              <span
-                aria-hidden="true"
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  isBlocking ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-
-        <form
-          onSubmit={addBlockedUrl}
-          className="mb-6 rounded-xl border border-white/30 bg-white/20 p-4 backdrop-blur-sm"
+    <div className="min-h-screen bg-canvas text-ink p-5 overflow-auto">
+      <div className="mb-6 flex flex-col items-start">
+        <button
+          type="button"
+          onClick={() => onNavigate("home")}
+          aria-label="Back to home"
+          className="flex items-center gap-1.5 text-ink font-mono uppercase font-bold hover:bg-ink hover:text-canvas px-2 py-1 border-[3px] border-transparent hover:border-ink transition-colors mb-4"
         >
-          <label htmlFor="blocked-domain" className="sr-only">
-            Website domain to block
-          </label>
-          <div className="flex space-x-3">
-            <input
-              id="blocked-domain"
-              type="text"
-              inputMode="url"
-              value={newUrl}
-              onChange={(event) => setNewUrl(event.target.value)}
-              placeholder="Enter website to block (e.g., youtube.com)"
-              className="flex-1 rounded-lg border-0 bg-white/90 px-4 py-3 text-gray-800 placeholder-gray-500 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-white/50"
-            />
-            <button
-              type="submit"
-              disabled={!newUrl.trim() || isSaving}
-              className="rounded-lg bg-white px-6 py-3 font-medium text-blue-600 shadow-lg transition-all duration-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:bg-white/50 disabled:text-gray-400"
-            >
-              Block
-            </button>
-          </div>
-          <p className="mt-2 text-xs text-blue-100">
-            💡 Paths are removed automatically; the domain and its subdomains
-            will be blocked.
-          </p>
-        </form>
+          <ChevronLeft size={16} /> Back
+        </button>
+        <h1 className="font-display text-6xl uppercase tracking-tight leading-none mb-2 text-ink">
+          Blocker
+        </h1>
+      </div>
 
-        <div className="mb-6 space-y-3">
-          {isLoading ? (
-            <div className="py-12 text-center text-white" role="status">
-              Loading your blocklist…
+      <div className="bg-paper brutal-border brutal-shadow p-4 flex justify-between items-center mb-6">
+        <div className="flex items-center space-x-3">
+          <ShieldCheck size={24} className="text-ink" />
+          <h2 className="font-display text-2xl uppercase">Blocking Status</h2>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isBlocking}
+          aria-label="Website blocking"
+          disabled={isSaving}
+          onClick={() => persistConfiguration(!isBlocking, blockedUrls)}
+          className={`brutal-border w-14 h-8 p-1 rounded-full relative transition-colors focus-visible:outline-none disabled:cursor-wait disabled:opacity-60 ${
+            isBlocking ? "bg-emerald" : "bg-paper"
+          }`}
+        >
+          <span
+            aria-hidden="true"
+            className={`absolute top-1 left-1 w-5 h-5 bg-ink rounded-full transition-transform ${
+              isBlocking ? "translate-x-6" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </div>
+
+      <BlockerStats
+        blockedUrls={blockedUrls}
+        isBlocking={isBlocking}
+        blocksToday={0}
+      />
+
+      <form
+        onSubmit={addBlockedUrl}
+        className="mb-8 flex gap-2"
+      >
+        <label htmlFor="blocked-domain" className="sr-only">
+          Website domain to block
+        </label>
+        <input
+          id="blocked-domain"
+          type="text"
+          inputMode="url"
+          value={newUrl}
+          onChange={(event) => setNewUrl(event.target.value)}
+          placeholder="youtube.com"
+          className="flex-1 brutal-border brutal-shadow-sm bg-paper px-3 py-2 font-mono uppercase focus:outline-none focus:ring-2 focus:ring-ink"
+        />
+        <button
+          type="submit"
+          disabled={!newUrl.trim() || isSaving}
+          className="bg-crimson text-paper brutal-border brutal-shadow-sm font-display text-2xl px-4 uppercase hover:bg-ink hover:text-canvas transition-colors disabled:opacity-50"
+        >
+          Block
+        </button>
+      </form>
+
+      <div className="mb-6 space-y-3">
+        {isLoading ? (
+          <div className="py-12 flex justify-center text-ink" role="status">
+            <Loader className="animate-spin" size={32} />
+          </div>
+        ) : blockedUrls.length > 0 ? (
+          <>
+            <div className="mb-4 flex items-center justify-between border-b-[3px] border-ink pb-2">
+              <h2 className="font-display text-3xl uppercase">
+                Blocked Sites
+              </h2>
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={clearAllBlocked}
+                className="font-mono text-sm font-bold uppercase bg-paper px-2 py-1 brutal-border hover:bg-crimson hover:text-white transition-colors"
+              >
+                Clear All
+              </button>
             </div>
-          ) : blockedUrls.length > 0 ? (
-            <>
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="font-semibold text-white">
-                  Blocked Websites ({blockedUrls.length})
-                </h2>
-                <button
-                  type="button"
-                  disabled={isSaving}
-                  onClick={clearAllBlocked}
-                  className="text-sm text-white/80 underline hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-60"
-                >
-                  Clear All
-                </button>
-              </div>
+            <div className="space-y-3">
               {blockedUrls.map((blockedUrl) => (
                 <BlockedURL
                   key={blockedUrl.id}
@@ -254,37 +239,29 @@ function WebsiteBlocker({ onNavigate }) {
                   onRemove={removeBlockedUrl}
                 />
               ))}
-            </>
-          ) : (
-            <div className="py-12 text-center">
-              <div aria-hidden="true" className="mb-4 text-6xl">
-                🌐
-              </div>
-              <h2 className="mb-2 text-lg font-medium text-white">
-                No blocked websites yet
-              </h2>
-              <p className="text-sm text-white/80">
-                Add websites above to start blocking distractions!
-              </p>
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <div className="py-12 text-center border-[3px] border-ink border-dashed bg-paper">
+            <Globe size={48} className="text-ink mx-auto mb-4" />
+            <h2 className="mb-2 font-display text-3xl uppercase text-ink">
+              List Empty
+            </h2>
+            <p className="font-mono text-sm font-bold uppercase">
+              Add websites above
+            </p>
+          </div>
+        )}
+      </div>
 
-        <BlockerStats
-          blockedUrls={blockedUrls}
-          isBlocking={isBlocking}
-          blocksToday={0}
-        />
-
-        <div className="mt-6">
-          <button
-            type="button"
-            onClick={() => onNavigate("home")}
-            className="w-full rounded-xl border border-white/20 bg-white/10 py-3 font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-          >
-            🏠 Back to Home
-          </button>
-        </div>
+      <div className="mt-8">
+        <button
+          type="button"
+          onClick={() => onNavigate("home")}
+          className="bg-paper text-ink brutal-border font-display text-2xl uppercase py-3 w-full flex items-center justify-center gap-2 hover:bg-emerald hover:brutal-shadow-sm transition-all"
+        >
+          <Home size={20} /> Home
+        </button>
       </div>
     </div>
   );

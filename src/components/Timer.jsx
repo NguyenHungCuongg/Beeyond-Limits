@@ -1,77 +1,55 @@
 import React from "react";
 
 function Timer({ time, isActive, progress = 0, isBreak = false }) {
-  // Format time từ seconds thành MM:SS
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Convert progress (0-100) to fraction (0-1)
-  // progress=0 means just started (full ring) -> offset=0
-  // progress=100 means completed (empty ring) -> offset=C
   const progressFraction = progress / 100;
 
   return (
-    <div className="relative w-64 h-64 mx-auto">
-      {/* Background Circle */}
-      <div className="absolute inset-0 rounded-full bg-white/20 backdrop-blur-sm border-4 border-white/30"></div>
-
+    <div className="bg-paper brutal-border brutal-shadow w-64 h-64 mx-auto flex flex-col items-center justify-center relative">
       {/* Progress Ring */}
       <svg
         aria-hidden="true"
-        className="absolute inset-0 w-full h-full transform -rotate-90"
+        className="absolute inset-0 w-full h-full transform -rotate-90 pointer-events-none"
         viewBox="0 0 100 100"
       >
-        {/* Background ring */}
         <circle
           cx="50"
           cy="50"
-          r="45"
+          r="42"
           fill="none"
-          stroke="rgba(255,255,255,0.1)"
-          strokeWidth="3"
+          className="stroke-ink opacity-10"
+          strokeWidth="6"
         />
-
-        {/* Progress ring */}
         <circle
           cx="50"
           cy="50"
-          r="45"
+          r="42"
           fill="none"
-          stroke="rgba(255,255,255,0.8)"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeDasharray={`${2 * Math.PI * 45}`}
-          strokeDashoffset={`${2 * Math.PI * 45 * progressFraction}`}
-          className={`transition-all duration-1000 ${isActive ? "drop-shadow-lg" : ""}`}
-          style={{
-            filter: isActive
-              ? "drop-shadow(0 0 8px rgba(255,255,255,0.5))"
-              : "none",
-          }}
+          className="stroke-mustard transition-all duration-1000"
+          strokeWidth="6"
+          strokeLinecap="square"
+          strokeDasharray={`${2 * Math.PI * 42}`}
+          strokeDashoffset={`${2 * Math.PI * 42 * (1 - progressFraction)}`}
         />
       </svg>
 
-      {/* Time Display */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+      <div className="flex flex-col items-center justify-center z-10">
         <div
           role="timer"
           aria-label={`${formatTime(time)} remaining`}
-          className="text-4xl font-bold font-mono tracking-wider drop-shadow-lg"
+          className="font-display text-7xl text-ink tracking-tight"
         >
           {formatTime(time)}
         </div>
-        <div className="text-sm opacity-80 mt-1">
+        <div className="font-mono font-bold uppercase text-sm text-ink mt-2">
           {isActive ? (isBreak ? "Break Time" : "Focus Time") : "Ready"}
         </div>
       </div>
-
-      {/* Pulse Animation when active */}
-      {isActive && (
-        <div className="absolute inset-0 rounded-full border-4 border-white/20 animate-ping"></div>
-      )}
     </div>
   );
 }

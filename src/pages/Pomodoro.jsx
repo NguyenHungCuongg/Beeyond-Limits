@@ -4,6 +4,7 @@ import Timer from "../components/Timer";
 import NumberSlider from "../components/NumberSlider";
 import SessionStats from "../components/SessionStats";
 import AudioControl from "../components/AudioControl";
+import { ChevronLeft, Play, Pause, Coffee, RotateCcw, Home } from "../components/Icons";
 
 /* global chrome */
 
@@ -136,24 +137,35 @@ function Pomodoro({ onNavigate }) {
       : 0;
 
   return (
-    <div className="h-full overflow-auto bg-gradient-to-br from-red-500 via-orange-500 to-red-600 font-primary">
-      <div className="p-6">
-        <div className="mb-6 flex flex-col items-start">
-          <button
-            type="button"
-            onClick={() => onNavigate("home")}
-            aria-label="Back to home"
-            className="mr-4 flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-sm transition-colors hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+    <div className="bg-canvas min-h-screen text-ink p-5 overflow-auto">
+      <div className="max-w-md mx-auto">
+        <button
+          type="button"
+          onClick={() => onNavigate("home")}
+          aria-label="Back to home"
+          className="font-mono text-sm font-bold uppercase flex gap-2 items-center mb-4 hover:opacity-80 transition-opacity"
+        >
+          <ChevronLeft size={16} /> BACK
+        </button>
+        
+        <h1 className="font-display text-6xl uppercase text-center mb-6">
+          Pomodoro
+        </h1>
+
+        <div className="flex brutal-border bg-paper w-full max-w-xs mx-auto mb-6">
+          <div
+            className={`font-mono font-bold uppercase py-2 flex-1 text-center transition-colors ${
+              !isBreak ? "bg-ink text-paper" : "bg-paper text-ink"
+            }`}
           >
-            ←
-          </button>
-          <div className="flex-1 self-center text-center">
-            <h1 className="text-2xl font-bold text-white drop-shadow-lg">
-              Pomodoro Timer
-            </h1>
-            <p className="text-sm text-red-100">
-              Stay focused, bee productive! 🍅
-            </p>
+            Focus
+          </div>
+          <div
+            className={`font-mono font-bold uppercase py-2 flex-1 text-center transition-colors ${
+              isBreak ? "bg-ink text-paper" : "bg-paper text-ink"
+            }`}
+          >
+            Break
           </div>
         </div>
 
@@ -166,28 +178,15 @@ function Pomodoro({ onNavigate }) {
           />
         </div>
 
-        <div className="mb-6 text-center" aria-live="polite">
-          <div className="inline-flex rounded-full bg-white/20 p-1 backdrop-blur-sm">
-            <div
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
-                !isBreak ? "bg-white text-red-600 shadow-lg" : "text-white"
-              }`}
-            >
-              Focus Time
-            </div>
-            <div
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
-                isBreak ? "bg-white text-red-600 shadow-lg" : "text-white"
-              }`}
-            >
-              Break Time
-            </div>
-          </div>
-        </div>
+        <SessionStats
+          sessionCount={sessionCount}
+          isBreak={isBreak}
+          currentTime={currentTime}
+        />
 
         <div className="mb-8 space-y-4">
           <NumberSlider
-            label="Focus Duration"
+            label="Focus"
             value={focusTime}
             min={5}
             max={100}
@@ -196,7 +195,7 @@ function Pomodoro({ onNavigate }) {
             onChange={handleFocusTimeChange}
           />
           <NumberSlider
-            label="Break Duration"
+            label="Break"
             value={breakTime}
             min={1}
             max={30}
@@ -211,28 +210,26 @@ function Pomodoro({ onNavigate }) {
           />
         </div>
 
-        <SessionStats
-          sessionCount={sessionCount}
-          isBreak={isBreak}
-          currentTime={currentTime}
-        />
-
-        <div className="space-y-3">
+        <div className="space-y-3 pb-8">
           {!isActive ? (
             <button
               type="button"
               onClick={() => runCommand("POMODORO_START")}
-              className="w-full rounded-xl bg-white py-4 font-bold text-red-600 shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="w-full flex items-center justify-center gap-2 bg-mustard text-ink brutal-border brutal-shadow font-display text-2xl uppercase py-3 hover:translate-y-[2px] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] transition-all active:translate-y-[4px] active:shadow-none"
             >
-              {isBreak ? "☕ Start Break" : "🍅 Start Focus Session"}
+              {isBreak ? (
+                <><Coffee size={24} /> Start Break</>
+              ) : (
+                <><Play size={24} /> Start Focus</>
+              )}
             </button>
           ) : (
             <button
               type="button"
               onClick={() => runCommand("POMODORO_PAUSE")}
-              className="w-full rounded-xl border-2 border-white/30 bg-white/20 py-4 font-bold text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="w-full flex items-center justify-center gap-2 bg-crimson text-paper brutal-border brutal-shadow font-display text-2xl uppercase py-3 hover:translate-y-[2px] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] transition-all active:translate-y-[4px] active:shadow-none"
             >
-              ⏸️ Pause Timer
+              <Pause size={24} /> Pause
             </button>
           )}
 
@@ -240,16 +237,16 @@ function Pomodoro({ onNavigate }) {
             <button
               type="button"
               onClick={() => runCommand("POMODORO_RESET")}
-              className="flex-1 rounded-xl border border-white/20 bg-white/10 py-3 font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="flex-1 flex items-center justify-center gap-2 bg-paper text-ink brutal-border brutal-shadow font-mono font-bold uppercase py-3 hover:bg-canvas transition-colors"
             >
-              🔄 Reset
+              <RotateCcw size={16} /> Reset
             </button>
             <button
               type="button"
               onClick={() => onNavigate("home")}
-              className="flex-1 rounded-xl border border-white/20 bg-white/10 py-3 font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="flex-1 flex items-center justify-center gap-2 bg-paper text-ink brutal-border brutal-shadow font-mono font-bold uppercase py-3 hover:bg-canvas transition-colors"
             >
-              🏠 Home
+              <Home size={16} /> Home
             </button>
           </div>
         </div>

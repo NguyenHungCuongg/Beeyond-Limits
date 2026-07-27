@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Check, Pencil, Trash } from "./Icons";
 
 function Task({ task, onToggle, onDelete, onEdit }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -27,101 +28,81 @@ function Task({ task, onToggle, onDelete, onEdit }) {
 
   return (
     <div
-      className={`group bg-white/90 backdrop-blur-sm rounded-xl p-4 border border-white/20 transition-all duration-300 ${
-        task.completed ? "opacity-75" : "hover:shadow-lg hover:scale-[1.01]"
+      className={`brutal-border brutal-shadow-sm p-3 flex items-center gap-3 mb-3 group hover:-translate-y-1 hover:brutal-shadow transition-all ${
+        task.completed ? "bg-canvas opacity-70" : "bg-paper"
       }`}
     >
-      <div className="flex items-center space-x-3">
-        {/* Checkbox */}
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={task.completed}
-          aria-label={`${task.completed ? "Mark as active" : "Mark as completed"}: ${task.text}`}
-          onClick={() => onToggle(task.id)}
-          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
-            task.completed
-              ? "bg-green-500 border-green-500 text-white"
-              : "border-gray-300 hover:border-green-400 hover:bg-green-50"
-          }`}
-        >
-          {task.completed && "✓"}
-        </button>
+      {/* Checkbox */}
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={task.completed}
+        aria-label={`${task.completed ? "Mark as active" : "Mark as completed"}: ${task.text}`}
+        onClick={() => onToggle(task.id)}
+        className={`w-6 h-6 brutal-border shrink-0 flex items-center justify-center cursor-pointer transition-colors ${
+          task.completed ? "bg-sapphire text-paper" : "bg-paper hover:bg-canvas"
+        }`}
+      >
+        {task.completed && <Check size={14} />}
+      </button>
 
-        {/* Task Text */}
-        <div className="flex-1">
-          {isEditing ? (
-            <input
-              aria-label={`Edit task: ${task.text}`}
-              type="text"
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              onKeyDown={handleKeyPress}
-              onBlur={handleEdit}
-              className="w-full bg-transparent border-none outline-none text-gray-800 font-medium focus:ring-2 focus:ring-green-400 rounded px-2 py-1"
-              autoFocus
-            />
-          ) : (
-            <span
-              className={`font-medium transition-all duration-300 ${
-                task.completed
-                  ? "text-gray-500 line-through"
-                  : "text-gray-800 group-hover:text-green-600"
-              }`}
-            >
-              {task.text}
+      {/* Task Text */}
+      <div className="flex-1">
+        {isEditing ? (
+          <input
+            aria-label={`Edit task: ${task.text}`}
+            type="text"
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            onKeyDown={handleKeyPress}
+            onBlur={handleEdit}
+            className="w-full brutal-border bg-paper px-2 py-1 font-mono uppercase focus:outline-none"
+            autoFocus
+          />
+        ) : (
+          <span
+            className={`font-sans font-bold text-lg text-ink uppercase ${
+              task.completed ? "line-through" : ""
+            }`}
+          >
+            {task.text}
+          </span>
+        )}
+
+        {/* Task metadata */}
+        <div className="flex items-center space-x-2 mt-1">
+          <span className="font-mono text-[10px] font-bold uppercase border border-ink px-1">
+            {new Date(task.createdAt).toLocaleDateString()}
+          </span>
+          {task.completed && (
+            <span className="font-mono text-[10px] font-bold uppercase border border-ink px-1 flex items-center gap-1">
+              DONE
             </span>
           )}
-
-          {/* Task metadata */}
-          <div className="flex items-center space-x-2 mt-1">
-            <span className="text-xs text-gray-500">
-              {new Date(task.createdAt).toLocaleDateString()}
-            </span>
-            {task.completed && (
-              <span className="text-xs text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
-                ✓ Completed
-              </span>
-            )}
-          </div>
         </div>
+      </div>
 
-        {/* Action Buttons */}
-        <div
-          className={`flex items-center space-x-2 transition-opacity duration-300 ${
-            isEditing
-              ? "opacity-100"
-              : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"
-          }`}
+      {/* Action Buttons */}
+      <div className="flex items-center space-x-2 transition-opacity opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+        <button
+          type="button"
+          aria-label={isEditing ? `Save task: ${task.text}` : `Edit task: ${task.text}`}
+          onClick={handleEdit}
+          className="w-8 h-8 brutal-border bg-paper hover:bg-canvas flex items-center justify-center text-ink"
+          title={isEditing ? "Save" : "Edit"}
         >
-          {/* Edit Button */}
-          <button
-            type="button"
-            aria-label={
-              isEditing ? `Save task: ${task.text}` : `Edit task: ${task.text}`
-            }
-            onClick={handleEdit}
-            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-              isEditing
-                ? "bg-green-100 text-green-600 hover:bg-green-200"
-                : "bg-green-200 text-green-700 hover:bg-green-300"
-            }`}
-            title={isEditing ? "Save" : "Edit"}
-          >
-            {isEditing ? "✓" : "✏️"}
-          </button>
+          {isEditing ? <Check size={14} /> : <Pencil size={14} />}
+        </button>
 
-          {/* Delete Button */}
-          <button
-            type="button"
-            aria-label={`Delete task: ${task.text}`}
-            onClick={() => onDelete(task.id)}
-            className="w-8 h-8 bg-green-200 rounded-lg flex items-center justify-center text-green-700 hover:bg-green-300 transition-colors"
-            title="Delete"
-          >
-            🗑️
-          </button>
-        </div>
+        <button
+          type="button"
+          aria-label={`Delete task: ${task.text}`}
+          onClick={() => onDelete(task.id)}
+          className="w-8 h-8 brutal-border bg-paper hover:bg-canvas flex items-center justify-center text-ink"
+          title="Delete"
+        >
+          <Trash size={14} />
+        </button>
       </div>
     </div>
   );
