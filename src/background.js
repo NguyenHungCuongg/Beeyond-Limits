@@ -13,7 +13,33 @@ import { getPomodoroAudioFiles } from "./core/audio.js";
 import { createOffscreenBridge } from "./core/offscreenBridge.js";
 
 import { createOperationQueue } from "./core/operationQueue.js";
+import {
+  createFocusSession,
+  pauseFocusSession,
+  resumeFocusSession,
+  completeFocusSession,
+  abandonFocusSession,
+  startBreakSession,
+  calculateRemainingSeconds,
+  calculateProgressPercentage,
+  FOCUS_STATES,
+  FOCUS_PHASES,
+} from "./core/focusSession.js";
+import {
+  getActiveFocusSession,
+  setActiveFocusSession,
+  clearActiveFocusSession,
+  getFocusTemplates,
+  getFocusHistory,
+  appendFocusHistory,
+  getFocusPreferences,
+  updateFocusPreferences,
+  initializeFocusStorage,
+} from "./core/focusStorage.js";
+
 const POMODORO_ALARM = "pomodoroTimer";
+export const FOCUS_ALARM = "focusSessionTimer";
+
 const DEFAULT_AMBIENT_SETTINGS = Object.freeze({
   bird: { enabled: false, volume: 50 },
   campfire: { enabled: false, volume: 50 },
@@ -389,12 +415,343 @@ class BackgroundPomodoroManager {
   }
 }
 
+export class FocusSessionManager {
+  constructor(chromeApi) {
+    this.chromeApi = chromeApi;
+    this.completionPromise = null;
+    this.ready = this.loadState();
+  }
+
+  async loadState() {
+    try {
+      await initializeFocusStorage(this.chromeApi);
+      const activeSession = await getActiveFocusSession(this.chromeApi);
+      if (!activeSession) {
+        return;
+      }
+
+      if (
+        activeSession.status === FOCUS_STATES.ACTIVE_FOCUS ||
+        activeSession.status === FOCUS_STATES.ACTIVE_BREAK
+      ) {
+        const now = Date.now();
+        if (activeSession.phaseEndsAt && activeSession.phaseEndsAt <= now) {
+          await this.completeCurrentPhase();
+        } else if (activeSession.phaseEndsAt) {
+          await this.chromeApi.alarms.create(FOCUS_ALARM, {
+            when: activeSession.phaseEndsAt,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Unable to restore Focus Session state:", error);
+    }
+  }
+
+  async getState() {
+    await this.ready;
+    const [rawActive, templates, history, preferences] = await Promise.all([
+      getActiveFocusSession(this.chromeApi),
+      getFocusTemplates(this.chromeApi),
+      getFocusHistory(this.chromeApi),
+      getFocusPreferences(this.chromeApi),
+    ]);
+
+    let activeSession = rawActive;
+    if (activeSession) {
+      const now = Date.now();
+      activeSession = {
+        ...activeSession,
+        remainingSeconds: calculateRemainingSeconds(activeSession, now),
+        progressPercentage: calculateProgressPercentage(activeSession, now),
+      };
+    }
+
+    return {
+      success: true,
+      activeSession,
+      templates,
+      history,
+      preferences,
+    };
+  }
+
+  async startSession(payload = {}) {
+    await this.ready;
+    const inputConfig = payload.config || payload || {};
+    const config = {
+      templateId: inputConfig.templateId,
+      focusDuration: inputConfig.durationMinutes ?? inputConfig.focusDuration,
+      breakDuration: inputConfig.breakDuration,
+      goal:
+        inputConfig.goal ??
+        (inputConfig.taskId !== undefined || inputConfig.taskText !== undefined
+          ? {
+              type: inputConfig.taskId ? "task" : "text",
+              taskId: inputConfig.taskId,
+              text: inputConfig.taskText || "",
+            }
+          : undefined),
+      blocker:
+        inputConfig.blocker ??
+        (inputConfig.blockerEnabled !== undefined
+          ? { enabled: inputConfig.blockerEnabled }
+          : undefined),
+      ambientSound:
+        inputConfig.ambientSound ??
+        (inputConfig.soundTrack
+          ? { enabled: true, soundId: inputConfig.soundTrack }
+          : undefined),
+      preSessionState: inputConfig.preSessionState,
+    };
+
+    const session = createFocusSession(config, Date.now());
+    await setActiveFocusSession(session, this.chromeApi);
+    await this.chromeApi.alarms.create(FOCUS_ALARM, {
+      when: session.phaseEndsAt,
+    });
+
+    this.broadcastStateUpdate(session);
+    return { success: true, activeSession: session };
+  }
+
+  async pauseSession(payload = {}) {
+    await this.ready;
+    const session = await getActiveFocusSession(this.chromeApi);
+    if (!session) {
+      return { success: false, error: "No active focus session found" };
+    }
+    if (payload.runtimeId && session.id !== payload.runtimeId) {
+      return { success: false, error: "Session runtime ID mismatch" };
+    }
+
+    const updated = pauseFocusSession(session, Date.now());
+    await this.chromeApi.alarms.clear(FOCUS_ALARM);
+    await setActiveFocusSession(updated, this.chromeApi);
+
+    this.broadcastStateUpdate(updated);
+    return { success: true, activeSession: updated };
+  }
+
+  async resumeSession(payload = {}) {
+    await this.ready;
+    const session = await getActiveFocusSession(this.chromeApi);
+    if (!session) {
+      return { success: false, error: "No active focus session found" };
+    }
+    if (payload.runtimeId && session.id !== payload.runtimeId) {
+      return { success: false, error: "Session runtime ID mismatch" };
+    }
+
+    const updated = resumeFocusSession(session, Date.now());
+    await setActiveFocusSession(updated, this.chromeApi);
+    if (updated.phaseEndsAt) {
+      await this.chromeApi.alarms.create(FOCUS_ALARM, {
+        when: updated.phaseEndsAt,
+      });
+    }
+
+    this.broadcastStateUpdate(updated);
+    return { success: true, activeSession: updated };
+  }
+
+  async abandonSession(payload = {}) {
+    await this.ready;
+    const session = await getActiveFocusSession(this.chromeApi);
+    if (!session) {
+      return { success: false, error: "No active focus session found" };
+    }
+    if (payload.runtimeId && session.id !== payload.runtimeId) {
+      return { success: false, error: "Session runtime ID mismatch" };
+    }
+
+    const reason = payload.reason || "user_stopped";
+    const now = Date.now();
+    const updated = abandonFocusSession(session, reason, now);
+
+    await this.chromeApi.alarms.clear(FOCUS_ALARM);
+
+    const historyRecord = {
+      id: updated.id,
+      runtimeId: updated.id,
+      status: FOCUS_STATES.ABANDONED,
+      focusDurationMinutes:
+        updated.snapshot?.focusDuration ||
+        Math.round((updated.durationSeconds || 0) / 60),
+      actualFocusSeconds: Math.max(
+        0,
+        Math.round((now - updated.startedAt) / 1000),
+      ),
+      startedAt: updated.startedAt,
+      abandonedAt: updated.abandonedAt || now,
+      abandonReason: reason,
+      goal: updated.goal,
+      templateId: updated.templateId,
+    };
+
+    await appendFocusHistory(historyRecord, this.chromeApi);
+    await clearActiveFocusSession(this.chromeApi);
+
+    this.broadcastStateUpdate(null);
+    return { success: true, activeSession: null };
+  }
+
+  async startBreak(payload = {}) {
+    await this.ready;
+    const session = await getActiveFocusSession(this.chromeApi);
+    if (!session) {
+      return { success: false, error: "No session found to start break" };
+    }
+    if (payload.runtimeId && session.id !== payload.runtimeId) {
+      return { success: false, error: "Session runtime ID mismatch" };
+    }
+
+    const durationMinutes = payload.durationMinutes ?? payload.breakDuration;
+    const breakSession = startBreakSession(
+      session,
+      durationMinutes,
+      Date.now(),
+    );
+
+    await setActiveFocusSession(breakSession, this.chromeApi);
+    if (breakSession.phaseEndsAt) {
+      await this.chromeApi.alarms.create(FOCUS_ALARM, {
+        when: breakSession.phaseEndsAt,
+      });
+    }
+
+    this.broadcastStateUpdate(breakSession);
+    return { success: true, activeSession: breakSession };
+  }
+
+  async skipBreak(payload = {}) {
+    await this.ready;
+    const session = await getActiveFocusSession(this.chromeApi);
+    if (payload.runtimeId && session && session.id !== payload.runtimeId) {
+      return { success: false, error: "Session runtime ID mismatch" };
+    }
+
+    await this.chromeApi.alarms.clear(FOCUS_ALARM);
+    await clearActiveFocusSession(this.chromeApi);
+
+    this.broadcastStateUpdate(null);
+    return { success: true, activeSession: null };
+  }
+
+  async updatePreferences(payload = {}) {
+    await this.ready;
+    const prefsToUpdate = payload.preferences || payload;
+    const updated = await updateFocusPreferences(
+      prefsToUpdate,
+      this.chromeApi,
+    );
+    return { success: true, preferences: updated };
+  }
+
+  async completeCurrentPhase() {
+    if (this.completionPromise) {
+      return this.completionPromise;
+    }
+
+    this.completionPromise = this.performPhaseCompletion().finally(() => {
+      this.completionPromise = null;
+    });
+    return this.completionPromise;
+  }
+
+  async performPhaseCompletion() {
+    await this.chromeApi.alarms.clear(FOCUS_ALARM);
+    const session = await getActiveFocusSession(this.chromeApi);
+    if (!session) {
+      return { success: false, error: "No active session to complete" };
+    }
+
+    const now = Date.now();
+    const completedSession = completeFocusSession(session, now);
+
+    if (session.phase === FOCUS_PHASES.FOCUS) {
+      const historyRecord = {
+        id: completedSession.id,
+        runtimeId: completedSession.id,
+        status: FOCUS_STATES.FOCUS_COMPLETED,
+        focusDurationMinutes: completedSession.snapshot?.focusDuration || 25,
+        actualFocusSeconds:
+          completedSession.durationSeconds ||
+          (completedSession.snapshot?.focusDuration || 25) * 60,
+        startedAt: completedSession.startedAt,
+        completedAt: completedSession.completedAt || now,
+        goal: completedSession.goal,
+        templateId: completedSession.templateId,
+      };
+
+      await appendFocusHistory(historyRecord, this.chromeApi);
+      await setActiveFocusSession(completedSession, this.chromeApi);
+
+      this.showNotification(
+        "focus",
+        completedSession.snapshot?.focusDuration || 25,
+      );
+    } else {
+      await setActiveFocusSession(completedSession, this.chromeApi);
+      this.showNotification(
+        "break",
+        completedSession.snapshot?.breakDuration || 5,
+      );
+    }
+
+    this.broadcastStateUpdate(completedSession);
+    return { success: true, activeSession: completedSession };
+  }
+
+  showNotification(type, durationMinutes) {
+    if (!this.chromeApi.notifications?.create) return;
+
+    const isFocus = type === "focus";
+    this.chromeApi.notifications
+      .create({
+        type: "basic",
+        iconUrl: "images/icon32.png",
+        title: isFocus
+          ? "Focus Session Complete! 🎉"
+          : "Break Finished! 💪",
+        message: isFocus
+          ? `You completed a ${durationMinutes} minute focus session.`
+          : "Ready for your next focus session?",
+      })
+      .catch((error) => {
+        console.error("Unable to show Focus notification:", error);
+      });
+  }
+
+  broadcastStateUpdate(activeSession) {
+    if (!this.chromeApi.runtime?.sendMessage) return;
+    const now = Date.now();
+    const sessionPayload = activeSession
+      ? {
+          ...activeSession,
+          remainingSeconds: calculateRemainingSeconds(activeSession, now),
+          progressPercentage: calculateProgressPercentage(activeSession, now),
+        }
+      : null;
+
+    this.chromeApi.runtime
+      .sendMessage({
+        type: "FOCUS_STATE_UPDATE",
+        activeSession: sessionPayload,
+      })
+      .catch(() => {});
+  }
+}
+
 const offscreenBridge = createOffscreenBridge(chrome);
 const ambientManager = new AmbientSoundManager(chrome, offscreenBridge);
 const pomodoroManager = new BackgroundPomodoroManager(chrome, offscreenBridge);
+export const focusManager = new FocusSessionManager(chrome);
+
 const blockerOperationQueue = createOperationQueue();
 const pomodoroOperationQueue = createOperationQueue();
 const ambientOperationQueue = createOperationQueue();
+const focusOperationQueue = createOperationQueue();
 
 function respond(sendResponse, operation) {
   Promise.resolve(operation)
@@ -412,6 +769,12 @@ chrome.alarms.onAlarm.addListener((alarm) => {
       .run(() => pomodoroManager.completeCurrentPhase())
       .catch((error) => {
         console.error("Unable to complete Pomodoro phase:", error);
+      });
+  } else if (alarm.name === FOCUS_ALARM) {
+    focusOperationQueue
+      .run(() => focusManager.completeCurrentPhase())
+      .catch((error) => {
+        console.error("Unable to complete Focus phase:", error);
       });
   }
 });
@@ -489,19 +852,61 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sendResponse,
         ambientOperationQueue.run(() => ambientManager.stopAllSounds()),
       );
+    case "FOCUS_GET_STATE":
+      return respond(
+        sendResponse,
+        focusOperationQueue.run(() => focusManager.getState()),
+      );
+    case "FOCUS_START_SESSION":
+      return respond(
+        sendResponse,
+        focusOperationQueue.run(() => focusManager.startSession(message)),
+      );
+    case "FOCUS_PAUSE_SESSION":
+      return respond(
+        sendResponse,
+        focusOperationQueue.run(() => focusManager.pauseSession(message)),
+      );
+    case "FOCUS_RESUME_SESSION":
+      return respond(
+        sendResponse,
+        focusOperationQueue.run(() => focusManager.resumeSession(message)),
+      );
+    case "FOCUS_ABANDON_SESSION":
+      return respond(
+        sendResponse,
+        focusOperationQueue.run(() => focusManager.abandonSession(message)),
+      );
+    case "FOCUS_START_BREAK":
+      return respond(
+        sendResponse,
+        focusOperationQueue.run(() => focusManager.startBreak(message)),
+      );
+    case "FOCUS_SKIP_BREAK":
+      return respond(
+        sendResponse,
+        focusOperationQueue.run(() => focusManager.skipBreak(message)),
+      );
+    case "FOCUS_UPDATE_PREFERENCES":
+      return respond(
+        sendResponse,
+        focusOperationQueue.run(() => focusManager.updatePreferences(message)),
+      );
     default:
       return false;
   }
 });
 
-async function synchronizeBlocker() {
+async function synchronizeStartup() {
   try {
     await blockerOperationQueue.run(() => syncBlockingRulesFromStorage(chrome));
+    await focusOperationQueue.run(() => focusManager.ready);
   } catch (error) {
-    console.error("Unable to synchronize blocking rules:", error);
+    console.error("Unable to synchronize startup:", error);
   }
 }
 
-chrome.runtime.onStartup.addListener(synchronizeBlocker);
-chrome.runtime.onInstalled.addListener(synchronizeBlocker);
-synchronizeBlocker();
+chrome.runtime.onStartup.addListener(synchronizeStartup);
+chrome.runtime.onInstalled.addListener(synchronizeStartup);
+synchronizeStartup();
+
