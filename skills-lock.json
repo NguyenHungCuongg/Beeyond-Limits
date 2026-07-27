@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "brandkit": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/brandkit/SKILL.md",
+      "computedHash": "735007879f5110aeae1e981a53fe74a12afde70347f9773dacd50e4697a091bf"
+    },
     "browser-testing-with-devtools": {
       "source": "addyosmani/agent-skills",
       "sourceType": "github",
@@ -25,6 +31,12 @@
       "skillPath": "skills/debugging-and-error-recovery/SKILL.md",
       "computedHash": "1a119d27e8f1d27ed6317adf3115826336491346780dcb7d7a7a7f79fe3ffe10"
     },
+    "design-taste-frontend": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/taste-skill/SKILL.md",
+      "computedHash": "899b84384f74f540ea5284d9b2e9234e050998b42eacc805410b518d4226c0b3"
+    },
     "documentation-and-adrs": {
       "source": "addyosmani/agent-skills",
       "sourceType": "github",
@@ -37,6 +49,12 @@
       "skillPath": "skills/frontend-ui-engineering/SKILL.md",
       "computedHash": "3a5d4a84e52710f2d724ff68813fba0d61db4f2a232a9d0b0050a8fec08b3e82"
     },
+    "gpt-taste": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/gpt-tasteskill/SKILL.md",
+      "computedHash": "7bd1bfdda0e51016ca222693401a65fc0dd9bf9487e0bd5b1740ba510f6f963a"
+    },
     "hallmark": {
       "source": "nutlope/hallmark",
       "sourceType": "github",
@@ -48,6 +66,18 @@
       "sourceType": "github",
       "skillPath": "skills/idea-refine/SKILL.md",
       "computedHash": "9fc0ae5d8a074872a636d22f9c6fe71e041b86cddc9fe5af90ef654f5032ec5d"
+    },
+    "imagegen-frontend-mobile": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/imagegen-frontend-mobile/SKILL.md",
+      "computedHash": "7c1d1dc59cd0df4063b8621af543bf5dea1d576b261507e17b0323c69680b048"
+    },
+    "imagegen-frontend-web": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/imagegen-frontend-web/SKILL.md",
+      "computedHash": "27255c7c50181e58add156b2aa2bd5325285b85f04027e4c8b73742d98d7be0a"
     },
     "source-driven-development": {
       "source": "addyosmani/agent-skills",
