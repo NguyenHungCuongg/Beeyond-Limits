@@ -1,6 +1,23 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+let serialTail = Promise.resolve();
+
+const serialTest = (name, fn) =>
+  test(name, async (...args) => {
+    const previous = serialTail;
+    let release;
+    serialTail = new Promise((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await fn(...args);
+    } finally {
+      release();
+    }
+  });
+
 function createMockChrome(initialStorage = {}) {
   const storageState = { ...initialStorage };
   const alarmsCreated = [];
@@ -99,7 +116,7 @@ function createMockChrome(initialStorage = {}) {
   };
 }
 
-test("SW Startup & Hydration: re-registers active alarm if phase ends in future", async () => {
+serialTest("SW Startup & Hydration: re-registers active alarm if phase ends in future", async () => {
   const futureTime = Date.now() + 600000;
   const initialSession = {
     id: "session_test_1",
@@ -133,7 +150,7 @@ test("SW Startup & Hydration: re-registers active alarm if phase ends in future"
   delete globalThis.chrome;
 });
 
-test("SW Startup & Hydration: catches up expired alarm if phase ends in past", async () => {
+serialTest("SW Startup & Hydration: catches up expired alarm if phase ends in past", async () => {
   const pastTime = Date.now() - 5000;
   const initialSession = {
     id: "session_test_expired",
@@ -169,7 +186,7 @@ test("SW Startup & Hydration: catches up expired alarm if phase ends in past", a
   delete globalThis.chrome;
 });
 
-test("Message Handlers: handles FOCUS_GET_STATE, FOCUS_START_SESSION, FOCUS_PAUSE_SESSION, FOCUS_RESUME_SESSION, FOCUS_ABANDON_SESSION, FOCUS_START_BREAK, FOCUS_SKIP_BREAK, FOCUS_UPDATE_PREFERENCES", async () => {
+serialTest("Message Handlers: handles FOCUS_GET_STATE, FOCUS_START_SESSION, FOCUS_PAUSE_SESSION, FOCUS_RESUME_SESSION, FOCUS_ABANDON_SESSION, FOCUS_START_BREAK, FOCUS_SKIP_BREAK, FOCUS_UPDATE_PREFERENCES", async () => {
   const mock = createMockChrome();
   globalThis.chrome = mock.chromeMock;
 
@@ -272,7 +289,7 @@ test("Message Handlers: handles FOCUS_GET_STATE, FOCUS_START_SESSION, FOCUS_PAUS
   delete globalThis.chrome;
 });
 
-test("Alarm Triggers & Single-Flight Completion: triggers notification and is idempotent", async () => {
+serialTest("Alarm Triggers & Single-Flight Completion: triggers notification and is idempotent", async () => {
   const session = {
     id: "session_alarm_test",
     schemaVersion: 1,

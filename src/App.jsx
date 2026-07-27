@@ -4,19 +4,67 @@ import Pomodoro from "./pages/Pomodoro";
 import TaskList from "./pages/TaskList";
 import WebsiteBlocker from "./pages/WebsiteBlocker";
 import AmbientSounds from "./pages/AmbientSounds";
+import FocusSessionSetup from "./pages/FocusSessionSetup";
+import ActiveFocusSession from "./pages/ActiveFocusSession";
+import FocusSessionComplete from "./pages/FocusSessionComplete";
+import SavedSessions from "./pages/SavedSessions";
+import { useFocusSession } from "./hooks/useFocusSession";
 import { Toaster } from "react-hot-toast";
 
 function App() {
   const [currentPage, setCurrentPage] = useState("home");
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const focusSession = useFocusSession();
 
   const navigateTo = (page) => {
     setCurrentPage(page);
   };
 
   const renderPage = () => {
+    const openSetup = (template = null) => {
+      setSelectedTemplate(template);
+      setCurrentPage("focus-setup");
+    };
+
     switch (currentPage) {
       case "home":
-        return <Home onNavigate={navigateTo} />;
+        return (
+          <Home
+            onNavigate={navigateTo}
+            onStartFocus={() => openSetup()}
+            focusSession={focusSession}
+          />
+        );
+      case "focus-setup":
+        return (
+          <FocusSessionSetup
+            onNavigate={navigateTo}
+            focusSession={focusSession}
+            template={selectedTemplate}
+          />
+        );
+      case "focus-active":
+        return (
+          <ActiveFocusSession
+            onNavigate={navigateTo}
+            focusSession={focusSession}
+          />
+        );
+      case "focus-complete":
+        return (
+          <FocusSessionComplete
+            onNavigate={navigateTo}
+            focusSession={focusSession}
+          />
+        );
+      case "saved-sessions":
+        return (
+          <SavedSessions
+            onNavigate={navigateTo}
+            focusSession={focusSession}
+            onSelectTemplate={setSelectedTemplate}
+          />
+        );
       case "pomodoro":
         return <Pomodoro onNavigate={navigateTo} />;
       case "tasklist":

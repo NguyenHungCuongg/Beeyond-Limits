@@ -1,4 +1,3 @@
-/* global chrome */
 
 import {
   syncBlockingRulesFromStorage,
@@ -743,10 +742,11 @@ export class FocusSessionManager {
   }
 }
 
-const offscreenBridge = createOffscreenBridge(chrome);
-const ambientManager = new AmbientSoundManager(chrome, offscreenBridge);
-const pomodoroManager = new BackgroundPomodoroManager(chrome, offscreenBridge);
-export const focusManager = new FocusSessionManager(chrome);
+const chromeApi = globalThis.chrome;
+const offscreenBridge = createOffscreenBridge(chromeApi);
+const ambientManager = new AmbientSoundManager(chromeApi, offscreenBridge);
+const pomodoroManager = new BackgroundPomodoroManager(chromeApi, offscreenBridge);
+export const focusManager = new FocusSessionManager(chromeApi);
 
 const blockerOperationQueue = createOperationQueue();
 const pomodoroOperationQueue = createOperationQueue();
@@ -763,7 +763,7 @@ function respond(sendResponse, operation) {
   return true;
 }
 
-chrome.alarms.onAlarm.addListener((alarm) => {
+chromeApi.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === POMODORO_ALARM) {
     pomodoroOperationQueue
       .run(() => pomodoroManager.completeCurrentPhase())
@@ -779,7 +779,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chromeApi.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.target === "offscreen") {
     return false;
   }
@@ -790,7 +790,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sendResponse,
         blockerOperationQueue.run(() =>
           updateBlockingConfiguration(
-            chrome,
+            chromeApi,
             message.isBlocking,
             message.blockedUrls,
           ),
@@ -899,14 +899,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 async function synchronizeStartup() {
   try {
-    await blockerOperationQueue.run(() => syncBlockingRulesFromStorage(chrome));
+    await blockerOperationQueue.run(() => syncBlockingRulesFromStorage(chromeApi));
     await focusOperationQueue.run(() => focusManager.ready);
   } catch (error) {
     console.error("Unable to synchronize startup:", error);
   }
 }
 
-chrome.runtime.onStartup.addListener(synchronizeStartup);
-chrome.runtime.onInstalled.addListener(synchronizeStartup);
+chromeApi.runtime.onStartup.addListener(synchronizeStartup);
+chromeApi.runtime.onInstalled.addListener(synchronizeStartup);
 synchronizeStartup();
 

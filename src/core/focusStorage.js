@@ -34,7 +34,7 @@ export function createOperationQueue() {
 const defaultQueue = createOperationQueue();
 
 function getStorage(chromeStorageApi) {
-  const api = chromeStorageApi || globalThis.chrome?.storage?.local;
+  const api = chromeStorageApi?.storage?.local || chromeStorageApi || globalThis.chrome?.storage?.local;
   if (!api || typeof api.get !== "function" || typeof api.set !== "function") {
     throw new Error("Chrome storage API is unavailable");
   }
@@ -43,7 +43,7 @@ function getStorage(chromeStorageApi) {
 
 export async function getActiveFocusSession(chromeStorageApi) {
   const storage = getStorage(chromeStorageApi);
-  const data = await storage.get(STORAGE_KEYS.ACTIVE_SESSION);
+  const data = await storage.get([STORAGE_KEYS.ACTIVE_SESSION]);
   return data[STORAGE_KEYS.ACTIVE_SESSION] ?? null;
 }
 

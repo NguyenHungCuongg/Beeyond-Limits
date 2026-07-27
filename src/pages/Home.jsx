@@ -8,7 +8,7 @@ import {
   Headphones,
 } from "../components/Icons";
 
-function Home({ onNavigate }) {
+function Home({ onNavigate, onStartFocus }) {
   return (
     <div className="min-h-screen bg-canvas overflow-auto p-5">
       {/* Header */}
@@ -22,6 +22,16 @@ function Home({ onNavigate }) {
           Your focus companion
         </p>
       </div>
+
+      {onStartFocus && (
+        <button
+          type="button"
+          onClick={onStartFocus}
+          className="w-full mb-7 bg-mustard text-ink brutal-border brutal-shadow font-display text-2xl uppercase py-3"
+        >
+          Start Focus Session
+        </button>
+      )}
 
       {/* Feature Cards */}
       <div className="space-y-6">
