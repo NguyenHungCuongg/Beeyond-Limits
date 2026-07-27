@@ -33,7 +33,6 @@ function createE2EEnvironment(initialStorage = {}) {
   const messageListeners = [];
   const alarmListeners = [];
   const dynamicRules = [];
-  const offscreenMessages = [];
 
   const chromeMock = {
     storage: {
@@ -140,7 +139,6 @@ function createE2EEnvironment(initialStorage = {}) {
     storage,
     alarms,
     dynamicRules,
-    offscreenMessages,
     messageListeners,
     alarmListeners,
   };

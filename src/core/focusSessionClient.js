@@ -51,5 +51,20 @@ export function createFocusSessionClient(
     updatePreferences(preferences) {
       return send("FOCUS_UPDATE_PREFERENCES", { preferences });
     },
+    listTemplates() {
+      return send("FOCUS_SESSION_TEMPLATE_LIST");
+    },
+    saveTemplate(template) {
+      return send("FOCUS_SESSION_TEMPLATE_SAVE", { template });
+    },
+    updateTemplate(template) {
+      return send("FOCUS_SESSION_TEMPLATE_UPDATE", { template });
+    },
+    duplicateTemplate(templateId) {
+      return send("FOCUS_SESSION_TEMPLATE_DUPLICATE", { templateId });
+    },
+    deleteTemplate(templateId) {
+      return send("FOCUS_SESSION_TEMPLATE_DELETE", { templateId });
+    },
   };
 }

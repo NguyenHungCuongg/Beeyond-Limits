@@ -8,10 +8,6 @@ function FeatureCard({
   description,
   Icon,
   iconLabel,
-  bgColor,
-  textColor,
-  dividerColor,
-  halftoneClass,
 }) {
   return (
     <button

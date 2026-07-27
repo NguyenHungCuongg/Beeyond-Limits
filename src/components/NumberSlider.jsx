@@ -19,7 +19,6 @@ function NumberSlider({
     onChange(newValue);
   };
 
-  const progress = ((value - min) / (max - min)) * 100;
 
   return (
     <div className="bg-paper brutal-border brutal-shadow-sm p-4 mb-4">

@@ -172,5 +172,13 @@ export function useFocusSession() {
       runCommand("preferences", () =>
         clientRef.current.updatePreferences(preferences),
       ),
+    saveTemplate: (template) =>
+      runCommand("save-template", () => clientRef.current.saveTemplate(template)),
+    updateTemplate: (template) =>
+      runCommand("update-template", () => clientRef.current.updateTemplate(template)),
+    duplicateTemplate: (templateId) =>
+      runCommand("duplicate-template", () => clientRef.current.duplicateTemplate(templateId)),
+    deleteTemplate: (templateId) =>
+      runCommand("delete-template", () => clientRef.current.deleteTemplate(templateId)),
   };
 }
