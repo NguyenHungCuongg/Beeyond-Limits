@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Feather, Flame, Waves, CloudRain, Zap, Wind, ChevronLeft, Home, Play, VolumeX } from "../components/Icons";
+import VolumeSlider from "../components/VolumeSlider";
 
 /* global chrome */
 
@@ -205,22 +206,10 @@ function AmbientSounds({ onNavigate }) {
               </div>
             </div>
 
-            <label
-              htmlFor={`${soundKey}-volume`}
-              className="sr-only"
-            >
-              Volume
-            </label>
-            <input
+            <VolumeSlider
               id={`${soundKey}-volume`}
-              type="range"
-              min="0"
-              max="100"
               value={sound.volume}
-              onChange={(event) =>
-                changeVolume(soundKey, Number(event.target.value))
-              }
-              className="w-full h-4 bg-canvas brutal-border appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-8 [&::-webkit-slider-thumb]:bg-ink [&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-black"
+              onChange={(value) => changeVolume(soundKey, value)}
             />
           </section>
         ))}

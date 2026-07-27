@@ -45,12 +45,15 @@ function NumberSlider({
           −
         </button>
 
-        <div className="flex-1 border-[3px] border-ink bg-canvas h-4 relative overflow-hidden">
-          <div
-            className="bg-mustard h-full transition-all duration-300 ease-out border-r-[3px] border-ink"
-            style={{ width: `${progress}%` }}
-          ></div>
-        </div>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step="1"
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="flex-1 h-4 bg-canvas brutal-border appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-8 [&::-webkit-slider-thumb]:bg-ink [&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-black [&::-webkit-slider-thumb]:translate-y-[3px]"
+        />
 
         <button
           type="button"
