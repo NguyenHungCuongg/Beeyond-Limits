@@ -129,11 +129,16 @@ function FocusSessionSetup({ onNavigate, focusSession, template = null }) {
         {showBlockerEditor ? (
           <SessionBlockerEditor
             blockedUrls={config.blocker.blockedUrls || []}
-            onUpdate={(urls) =>
+            onUpdate={(urls) => {
+              const isAdding = urls.length > (config.blocker.blockedUrls?.length || 0);
               updateConfig({
-                blocker: { ...config.blocker, blockedUrls: urls },
-              })
-            }
+                blocker: {
+                  ...config.blocker,
+                  blockedUrls: urls,
+                  ...(isAdding && { enabled: true }),
+                },
+              });
+            }}
             onClose={() => setShowBlockerEditor(false)}
           />
         ) : (

@@ -1,6 +1,14 @@
 import { useEffect, useState, useRef } from "react";
-import { Ban, Home, Pause, Play, Check } from "../components/Icons";
+import {
+  Ban,
+  Home,
+  Pause,
+  Play,
+  ShieldCheck,
+  Headphones,
+} from "../components/Icons";
 import { FOCUS_PHASES, FOCUS_STATES } from "../core/focusSession.js";
+import { getFocusEnvironmentIndicators } from "../core/focusEnvironmentStatus.js";
 import ConfirmDialog from "../components/ConfirmDialog";
 
 function getRemainingSeconds(session, now = Date.now()) {
@@ -77,6 +85,7 @@ function ActiveFocusSession({ onNavigate, onStartFocus, focusSession }) {
 
   const remaining = getRemainingSeconds(session, now);
   const goal = session.goal?.text || "Focused work";
+  const environmentIndicators = getFocusEnvironmentIndicators(session);
 
   async function togglePause() {
     try {
@@ -145,30 +154,24 @@ function ActiveFocusSession({ onNavigate, onStartFocus, focusSession }) {
           </p>
         </div>
 
-        <div className="flex justify-between items-center mb-6 font-mono text-xs font-bold uppercase">
-          <div>
-            {!isBreak && session.blocker?.enabled ? (
-              <span className="flex items-center gap-2">
-                <Check size={14} className="text-emerald" />
-                {isPaused ? "Still blocking" : "Blocking sites"}
+        {environmentIndicators.length > 0 && (
+          <div
+            role="status"
+            aria-label="Active session environment"
+            className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-xs font-bold uppercase"
+          >
+            {environmentIndicators.map((indicator) => (
+              <span key={indicator.type} className="flex items-center gap-2">
+                {indicator.type === "blocker" ? (
+                  <ShieldCheck size={14} className="text-emerald" />
+                ) : (
+                  <Headphones size={14} className="text-emerald" />
+                )}
+                {indicator.text}
               </span>
-            ) : !isBreak ? (
-              <span className="text-ink/50">Blocker off</span>
-            ) : (
-              <span className="text-ink/50">Blocker off for break</span>
-            )}
+            ))}
           </div>
-          <div>
-            {!isBreak && session.ambientSound?.enabled ? (
-              <span className="flex items-center gap-2">
-                <Check size={14} className="text-emerald" />
-                {isPaused ? "Sound paused" : "Sound on"}
-              </span>
-            ) : (
-              <span className="text-ink/50">Sound off</span>
-            )}
-          </div>
-        </div>
+        )}
 
         {focusSession.error && (
           <div
