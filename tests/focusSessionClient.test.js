@@ -67,6 +67,21 @@ test("focus session client sends state and lifecycle commands", async () => {
   ]);
 });
 
+test("focus session client previews the selected ambient sound at its configured volume", async () => {
+  const runtime = createRuntime({
+    AMBIENT_TEST_SOUND: { success: true },
+  });
+  const client = createFocusSessionClient(runtime.api);
+
+  await client.testAmbientSound("bird", 35);
+  await client.testAmbientSound("ocean_waves", 70);
+
+  assert.deepEqual(runtime.messages, [
+    { type: "AMBIENT_TEST_SOUND", soundKey: "bird", volume: 35 },
+    { type: "AMBIENT_TEST_SOUND", soundKey: "ocean_waves", volume: 70 },
+  ]);
+});
+
 test("focus session client rejects unsuccessful background responses", async () => {
   const runtime = createRuntime({
     FOCUS_GET_STATE: { success: false, error: "Storage unavailable" },

@@ -117,6 +117,46 @@ test("normalizeFocusConfig preserves valid custom values", () => {
   assert.equal(normalized.ambientSound.volume, 75);
 });
 
+test("normalizeFocusConfig preserves a multi-sound ambient mix", () => {
+  const normalized = normalizeFocusConfig({
+    ambientSound: {
+      enabled: true,
+      sounds: {
+        rain: { enabled: true, volume: 70 },
+        thunder: { enabled: true, volume: 20 },
+        wind: { enabled: false, volume: 999 },
+      },
+    },
+  });
+
+  assert.equal(normalized.ambientSound.enabled, true);
+  assert.deepEqual(normalized.ambientSound.sounds.rain, {
+    enabled: true,
+    volume: 70,
+  });
+  assert.deepEqual(normalized.ambientSound.sounds.thunder, {
+    enabled: true,
+    volume: 20,
+  });
+  assert.equal(normalized.ambientSound.sounds.wind.volume, 100);
+});
+
+
+test("normalizeFocusConfig keeps a configured mix when ambient audio is toggled off", () => {
+  const normalized = normalizeFocusConfig({
+    ambientSound: {
+      enabled: false,
+      sounds: {
+        rain: { enabled: true, volume: 70 },
+        thunder: { enabled: true, volume: 20 },
+      },
+    },
+  });
+
+  assert.equal(normalized.ambientSound.enabled, false);
+  assert.equal(normalized.ambientSound.sounds.rain.enabled, true);
+  assert.equal(normalized.ambientSound.sounds.thunder.enabled, true);
+});
 test("normalizeFocusConfig clamps out-of-bounds durations", () => {
   assert.equal(normalizeFocusConfig({ focusDuration: 2 }).focusDuration, 5);
   assert.equal(normalizeFocusConfig({ focusDuration: 200 }).focusDuration, 120);
@@ -166,11 +206,13 @@ test("normalizeFocusConfig disables unsupported ambient sound IDs", () => {
     ambientSound: { enabled: true, soundId: "coffee" },
   });
 
-  assert.deepEqual(normalized.ambientSound, {
-    enabled: false,
-    soundId: null,
-    volume: 50,
-  });
+  assert.equal(normalized.ambientSound.enabled, false);
+  assert.equal(normalized.ambientSound.soundId, null);
+  assert.equal(normalized.ambientSound.volume, 50);
+  assert.equal(
+    Object.values(normalized.ambientSound.sounds).every((sound) => !sound.enabled),
+    true,
+  );
 });
 
 // ==========================================

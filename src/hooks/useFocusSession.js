@@ -188,6 +188,8 @@ export function useFocusSession() {
       runCommand("delete-template", () =>
         clientRef.current.deleteTemplate(templateId),
       ),
+    testAmbientSound: (soundKey, volume) =>
+      clientRef.current.testAmbientSound(soundKey, volume),
     completeTask: (taskId) =>
       runCommand("complete-task", () => clientRef.current.completeTask(taskId)),
     finishSession: (runtimeId) =>

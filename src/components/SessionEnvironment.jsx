@@ -1,40 +1,18 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { ShieldCheck, Headphones } from "./Icons";
-import VolumeSlider from "./VolumeSlider";
-import { AMBIENT_SOUND_IDS } from "../core/focusSession.js";
-
-const AMBIENT_SOUNDS = AMBIENT_SOUND_IDS.map((id) => ({
-  id,
-  label: id
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" "),
-}));
+import SessionAmbientMix from "./SessionAmbientMix";
 
 export default function SessionEnvironment({
   blocker,
   ambientSound,
   onBlockerChange,
   onAmbientChange,
+  onTestAmbientSound,
   onEditBlocklist,
 }) {
-  const domainCount = Array.isArray(blocker.blockedUrls) ? blocker.blockedUrls.length : 0;
-
-  // Initialize soundId if not set when enabled
-  useEffect(() => {
-    if (ambientSound.enabled && !ambientSound.soundId) {
-      onAmbientChange({ ...ambientSound, soundId: "rain" });
-    }
-  }, [
-    ambientSound.enabled,
-    ambientSound.soundId,
-    onAmbientChange,
-    ambientSound,
-  ]);
-
-  const handleSoundSelect = (e) => {
-    onAmbientChange({ ...ambientSound, soundId: e.target.value });
-  };
+  const domainCount = Array.isArray(blocker.blockedUrls)
+    ? blocker.blockedUrls.length
+    : 0;
 
   return (
     <fieldset className="brutal-border bg-paper mb-5">
@@ -99,34 +77,11 @@ export default function SessionEnvironment({
         </label>
 
         {ambientSound.enabled && (
-          <div className="mt-4 pl-7 space-y-3">
-            <select
-              value={ambientSound.soundId || "rain"}
-              onChange={handleSoundSelect}
-              className="w-full brutal-border brutal-shadow-sm px-2 py-2 bg-canvas font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ink cursor-pointer"
-            >
-              {AMBIENT_SOUNDS.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-
-            <div className="flex items-center gap-3">
-              <span className="font-mono text-xs font-bold uppercase w-12">
-                Vol
-              </span>
-              <div className="flex-1 mt-1">
-                <VolumeSlider
-                  id="ambient-volume"
-                  value={ambientSound.volume}
-                  onChange={(volume) =>
-                    onAmbientChange({ ...ambientSound, volume })
-                  }
-                />
-              </div>
-            </div>
-          </div>
+          <SessionAmbientMix
+            ambientSound={ambientSound}
+            onChange={onAmbientChange}
+            onTestSound={onTestAmbientSound}
+          />
         )}
       </div>
     </fieldset>

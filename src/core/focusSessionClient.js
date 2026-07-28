@@ -67,6 +67,9 @@ export function createFocusSessionClient(
     deleteTemplate(templateId) {
       return send("FOCUS_SESSION_TEMPLATE_DELETE", { templateId });
     },
+    testAmbientSound(soundKey, volume) {
+      return send("AMBIENT_TEST_SOUND", { soundKey, volume });
+    },
     async completeTask(taskId) {
       if (!storageApi || !storageApi.local) {
         throw new Error("Storage unavailable");

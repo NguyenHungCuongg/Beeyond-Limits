@@ -197,11 +197,15 @@ function AmbientSounds({ onNavigate }) {
                   aria-label={`${sound.name} ambient sound`}
                   disabled={isSaving}
                   onClick={() => toggleSound(soundKey)}
-                  className={`w-8 h-8 brutal-border flex items-center justify-center transition-colors disabled:opacity-60 ${
-                    sound.enabled ? "bg-crimson text-white" : "bg-canvas text-transparent"
+                  className={`relative inline-flex h-8 w-14 items-center brutal-border transition-colors cursor-pointer disabled:opacity-60 ${
+                    sound.enabled ? "bg-emerald" : "bg-canvas"
                   }`}
                 >
-                  <div className={`w-4 h-4 bg-ink ${sound.enabled ? 'block' : 'hidden'}`}></div>
+                  <span
+                    className={`inline-block h-6 w-6 brutal-border transform transition-transform ${
+                      sound.enabled ? "translate-x-[24px] bg-paper" : "translate-x-1 bg-ink"
+                    }`}
+                  />
                 </button>
               </div>
             </div>

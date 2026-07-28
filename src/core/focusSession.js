@@ -53,6 +53,7 @@ export const DEFAULT_FOCUS_SETTINGS = Object.freeze({
     enabled: false,
     soundId: null,
     volume: 50,
+    sounds: Object.freeze({}),
   }),
 });
 
@@ -64,27 +65,12 @@ export const DEFAULT_TEMPLATES = Object.freeze([
     breakDuration: 5,
     goal: Object.freeze({ type: "text", text: "", taskId: null }),
     blocker: Object.freeze({ enabled: true, blockedUrls: [] }),
-    ambientSound: Object.freeze({ enabled: false, soundId: null, volume: 50 }),
-    isDefault: true,
-  }),
-  Object.freeze({
-    id: "template_deep_50",
-    name: "Deep Work 50",
-    focusDuration: 50,
-    breakDuration: 10,
-    goal: Object.freeze({ type: "text", text: "", taskId: null }),
-    blocker: Object.freeze({ enabled: true, blockedUrls: [] }),
-    ambientSound: Object.freeze({ enabled: false, soundId: null, volume: 50 }),
-    isDefault: true,
-  }),
-  Object.freeze({
-    id: "template_sprint_15",
-    name: "Quick Sprint 15",
-    focusDuration: 15,
-    breakDuration: 3,
-    goal: Object.freeze({ type: "text", text: "", taskId: null }),
-    blocker: Object.freeze({ enabled: true, blockedUrls: [] }),
-    ambientSound: Object.freeze({ enabled: false, soundId: null, volume: 50 }),
+    ambientSound: Object.freeze({
+      enabled: false,
+      soundId: null,
+      volume: 50,
+      sounds: Object.freeze({}),
+    }),
     isDefault: true,
   }),
 ]);
@@ -157,18 +143,48 @@ export function normalizeFocusConfig(config = {}) {
     typeof config.blocker?.presetId === "string"
       ? config.blocker.presetId
       : "default";
-  
+
   const blockedUrls = Array.isArray(config.blocker?.blockedUrls)
     ? sanitizeBlockedUrls(config.blocker.blockedUrls)
     : [];
 
   const soundEnabled = Boolean(config.ambientSound?.enabled ?? false);
-  const soundId =
+  const legacySoundId =
     typeof config.ambientSound?.soundId === "string"
       ? config.ambientSound.soundId
       : null;
-  const validSoundId = AMBIENT_SOUND_IDS.includes(soundId) ? soundId : null;
-  const volume = clamp(config.ambientSound?.volume, 0, 100, 50);
+  const validLegacySoundId = AMBIENT_SOUND_IDS.includes(legacySoundId)
+    ? legacySoundId
+    : null;
+  const rawSounds =
+    config.ambientSound?.sounds &&
+    typeof config.ambientSound.sounds === "object" &&
+    !Array.isArray(config.ambientSound.sounds)
+      ? config.ambientSound.sounds
+      : {};
+  const sounds = Object.fromEntries(
+    AMBIENT_SOUND_IDS.map((id) => {
+      const rawSound = rawSounds[id];
+      const usesLegacySound =
+        !Object.keys(rawSounds).length && validLegacySoundId === id;
+      return [
+        id,
+        {
+          enabled: Boolean(rawSound?.enabled ?? usesLegacySound),
+          volume: clamp(
+            rawSound?.volume ??
+              (usesLegacySound ? config.ambientSound?.volume : 50),
+            0,
+            100,
+            50,
+          ),
+        },
+      ];
+    }),
+  );
+  const primarySoundId =
+    AMBIENT_SOUND_IDS.find((id) => sounds[id].enabled) ?? null;
+  const volume = primarySoundId ? sounds[primarySoundId].volume : 50;
 
   return {
     focusDuration,
@@ -176,9 +192,10 @@ export function normalizeFocusConfig(config = {}) {
     goal: { type: goalType, text: goalText, taskId },
     blocker: { enabled: blockerEnabled, presetId, blockedUrls },
     ambientSound: {
-      enabled: soundEnabled && Boolean(validSoundId),
-      soundId: soundEnabled ? validSoundId : null,
+      enabled: soundEnabled && Boolean(primarySoundId),
+      soundId: primarySoundId,
       volume,
+      sounds,
     },
   };
 }

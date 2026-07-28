@@ -205,6 +205,7 @@ serialTest("SW Startup keeps the session blocklist after focus completion", asyn
 serialTest("SW Startup & Hydration: catches up expired alarm if phase ends in past", async () => {
   const pastTime = Date.now() - 5000;
   const initialSession = {
+
     id: "session_test_expired",
     schemaVersion: 1,
     phase: "focus",
@@ -234,6 +235,61 @@ serialTest("SW Startup & Hydration: catches up expired alarm if phase ends in pa
   assert.equal(history[0].runtimeId, "session_test_expired");
   assert.equal(history[0].status, "focus_completed");
   assert.equal(mock.notificationsCreated.length, 1);
+
+  delete globalThis.chrome;
+});
+
+serialTest("Focus Session applies every enabled sound in its ambient mix", async () => {
+  const mock = createMockChrome();
+  globalThis.chrome = mock.chromeMock;
+  const bg = await import(`../src/background.js?test_ambient_mix=${Date.now()}`);
+  mock.chromeMock.runtime.getContexts = async () => [];
+  mock.chromeMock.offscreen = {
+    async createDocument() {},
+  };
+  const calls = [];
+  const ambientManager = {
+    async stopAllSounds() {
+      calls.push({ type: "stop" });
+    },
+    async updateSettings(settings) {
+      calls.push({ type: "update", settings });
+    },
+  };
+  const manager = new bg.FocusSessionManager(mock.chromeMock, { ambientManager });
+
+  await manager.startSession({
+    config: {
+      ambientSound: {
+        enabled: true,
+        sounds: {
+          bird: { enabled: true, volume: 35 },
+          ocean_waves: { enabled: true, volume: 65 },
+          rain: { enabled: true, volume: 70 },
+          thunder: { enabled: true, volume: 20 },
+        },
+      },
+    },
+  });
+
+  const mixUpdate = calls.find((call) => call.type === "update");
+  assert.deepEqual(mixUpdate.settings.bird, {
+    enabled: true,
+    volume: 35,
+  });
+  assert.deepEqual(mixUpdate.settings.ocean_waves, {
+    enabled: true,
+    volume: 65,
+  });
+  assert.deepEqual(mixUpdate.settings.rain, { enabled: true, volume: 70 });
+  assert.deepEqual(mixUpdate.settings.thunder, {
+    enabled: true,
+    volume: 20,
+  });
+  assert.deepEqual(mixUpdate.settings.campfire, {
+    enabled: false,
+    volume: 50,
+  });
 
   delete globalThis.chrome;
 });

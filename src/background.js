@@ -24,6 +24,7 @@ import {
   calculateProgressPercentage,
   FOCUS_STATES,
   FOCUS_PHASES,
+  AMBIENT_SOUND_IDS,
 } from "./core/focusSession.js";
 import {
   getActiveFocusSession,
@@ -451,7 +452,6 @@ export class FocusSessionManager {
   async startSessionAmbient(ambientSound) {
     if (
       !ambientSound?.enabled ||
-      !ambientSound.soundId ||
       !this.ambientManager?.updateSettings ||
       !this.chromeApi.runtime?.getContexts ||
       !this.chromeApi.offscreen?.createDocument
@@ -459,12 +459,20 @@ export class FocusSessionManager {
       return;
     }
 
-    await this.ambientManager.updateSettings({
-      [ambientSound.soundId]: {
-        enabled: true,
-        volume: ambientSound.volume,
-      },
-    });
+    await this.ambientManager.updateSettings(
+      Object.fromEntries(
+        AMBIENT_SOUND_IDS.map((soundId) => [
+          soundId,
+          {
+            enabled: Boolean(
+              ambientSound.sounds?.[soundId]?.enabled ??
+                (ambientSound.soundId === soundId),
+            ),
+            volume: ambientSound.sounds?.[soundId]?.volume ?? ambientSound.volume ?? 50,
+          },
+        ]),
+      ),
+    );
   }
 
   async restoreEnvironment(session) {
