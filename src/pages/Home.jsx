@@ -162,7 +162,7 @@ function Home({ onNavigate, onStartFocus, focusSession }) {
         </div>
 
         {/* Quick Tools */}
-        <QuickTools onNavigate={onNavigate} />
+        <QuickTools onNavigate={onNavigate} activeSession={activeSession} />
 
         {/* Daily Quote */}
         <DailyQuote />

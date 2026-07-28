@@ -1,4 +1,3 @@
-
 import {
   syncBlockingRulesFromStorage,
   updateBlockingConfiguration,
@@ -431,11 +430,13 @@ export class FocusSessionManager {
       return { success: true, skipped: true };
     }
 
-    const result = await blockerOperationQueue.run(() => applyBlockingRules(
-      this.chromeApi.declarativeNetRequest,
-      enabled,
-      blockedUrls,
-    ));
+    const result = await blockerOperationQueue.run(() =>
+      applyBlockingRules(
+        this.chromeApi.declarativeNetRequest,
+        enabled,
+        blockedUrls,
+      ),
+    );
     return { success: true, ...result };
   }
 
@@ -466,9 +467,12 @@ export class FocusSessionManager {
           {
             enabled: Boolean(
               ambientSound.sounds?.[soundId]?.enabled ??
-                (ambientSound.soundId === soundId),
+              ambientSound.soundId === soundId,
             ),
-            volume: ambientSound.sounds?.[soundId]?.volume ?? ambientSound.volume ?? 50,
+            volume:
+              ambientSound.sounds?.[soundId]?.volume ??
+              ambientSound.volume ??
+              50,
           },
         ]),
       ),
@@ -791,10 +795,7 @@ export class FocusSessionManager {
   async updatePreferences(payload = {}) {
     await this.ready;
     const prefsToUpdate = payload.preferences || payload;
-    const updated = await updateFocusPreferences(
-      prefsToUpdate,
-      this.chromeApi,
-    );
+    const updated = await updateFocusPreferences(prefsToUpdate, this.chromeApi);
     return { success: true, preferences: updated };
   }
 
@@ -907,9 +908,7 @@ export class FocusSessionManager {
       .create({
         type: "basic",
         iconUrl: "images/icon32.png",
-        title: isFocus
-          ? "Focus Session Complete! 🎉"
-          : "Break Finished! 💪",
+        title: isFocus ? "Focus Session Complete! 🎉" : "Break Finished! 💪",
         message: isFocus
           ? `You completed a ${durationMinutes} minute focus session.`
           : "Ready for your next focus session?",
@@ -942,8 +941,13 @@ export class FocusSessionManager {
 const chromeApi = globalThis.chrome;
 const offscreenBridge = createOffscreenBridge(chromeApi);
 const ambientManager = new AmbientSoundManager(chromeApi, offscreenBridge);
-const pomodoroManager = new BackgroundPomodoroManager(chromeApi, offscreenBridge);
-export const focusManager = new FocusSessionManager(chromeApi, { ambientManager });
+const pomodoroManager = new BackgroundPomodoroManager(
+  chromeApi,
+  offscreenBridge,
+);
+export const focusManager = new FocusSessionManager(chromeApi, {
+  ambientManager,
+});
 
 const blockerOperationQueue = createOperationQueue();
 const pomodoroOperationQueue = createOperationQueue();
@@ -996,7 +1000,16 @@ chromeApi.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     case "POMODORO_START":
       return respond(
         sendResponse,
-        pomodoroOperationQueue.run(() => pomodoroManager.startTimer()),
+        pomodoroOperationQueue.run(async () => {
+          const activeFocusSession = await getActiveFocusSession(chromeApi);
+          if (activeFocusSession) {
+            return {
+              success: false,
+              error: "Pomodoro is locked while a Focus Session is running",
+            };
+          }
+          return pomodoroManager.startTimer();
+        }),
       );
     case "POMODORO_PAUSE":
       return respond(
@@ -1136,11 +1149,11 @@ async function synchronizeStartup() {
       ) {
         await focusManager.applySessionBlocker(
           Boolean(session.snapshot?.blocker?.enabled),
-          session.snapshot?.blocker?.blockedUrls ?? []
+          session.snapshot?.blocker?.blockedUrls ?? [],
         );
       } else {
         await blockerOperationQueue.run(() =>
-          syncBlockingRulesFromStorage(chromeApi)
+          syncBlockingRulesFromStorage(chromeApi),
         );
       }
     }
@@ -1152,4 +1165,3 @@ async function synchronizeStartup() {
 chromeApi.runtime.onStartup.addListener(synchronizeStartup);
 chromeApi.runtime.onInstalled.addListener(synchronizeStartup);
 synchronizeStartup();
-
