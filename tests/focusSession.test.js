@@ -80,15 +80,10 @@ test("DEFAULT_FOCUS_SETTINGS has standard defaults", () => {
   assert.equal(DEFAULT_FOCUS_SETTINGS.ambientSound.volume, 50);
 });
 
-test("DEFAULT_TEMPLATES contains 3 preset templates", () => {
-  assert.equal(Array.isArray(DEFAULT_TEMPLATES), true);
-  assert.equal(DEFAULT_TEMPLATES.length, 3);
+test("DEFAULT_TEMPLATES contains 1 preset templates", () => {
+  assert.strictEqual(DEFAULT_TEMPLATES.length, 1);
   assert.equal(DEFAULT_TEMPLATES[0].id, "template_quick_25");
   assert.equal(DEFAULT_TEMPLATES[0].focusDuration, 25);
-  assert.equal(DEFAULT_TEMPLATES[1].id, "template_deep_50");
-  assert.equal(DEFAULT_TEMPLATES[1].focusDuration, 50);
-  assert.equal(DEFAULT_TEMPLATES[2].id, "template_sprint_15");
-  assert.equal(DEFAULT_TEMPLATES[2].focusDuration, 15);
 });
 
 // ==========================================

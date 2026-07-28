@@ -91,5 +91,8 @@ export function createFocusSessionClient(
       }
       return { success: true, updated };
     },
+    stopAlarm() {
+      return send("FOCUS_STOP_ALARM");
+    },
   };
 }

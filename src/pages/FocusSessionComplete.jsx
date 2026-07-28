@@ -68,6 +68,14 @@ export default function FocusSessionComplete({
     }
   }
 
+  async function handleStopAlarm() {
+    try {
+      await focusSession.stopAlarm();
+    } catch {
+      // ignore
+    }
+  }
+
   async function handleSaveTemplate(e) {
     e.preventDefault();
     if (!templateName.trim()) return;
@@ -146,6 +154,15 @@ export default function FocusSessionComplete({
         )}
 
         <div className="space-y-3 mb-8">
+          <button
+            type="button"
+            onClick={handleStopAlarm}
+            disabled={focusSession.isBusy}
+            className="w-full bg-canvas text-emerald brutal-border-light font-mono font-bold uppercase py-3 flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-paper transition-colors"
+          >
+            Mute Alarm
+          </button>
+
           {!isBreakCompleted ? (
             <button
               type="button"

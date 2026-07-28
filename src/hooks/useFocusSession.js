@@ -196,5 +196,7 @@ export function useFocusSession() {
       runCommand("finish-session", () =>
         clientRef.current.skipBreak(runtimeId),
       ),
+    stopAlarm: () =>
+      runCommand("stop-alarm", () => clientRef.current.stopAlarm()),
   };
 }

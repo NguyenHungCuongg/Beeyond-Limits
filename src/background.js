@@ -8,7 +8,7 @@ import {
   normalizePomodoroSettings,
   restorePomodoroState,
 } from "./core/pomodoro.js";
-import { getPomodoroAudioFiles } from "./core/audio.js";
+import { getAlarmAudioUrl } from "./core/audio.js";
 import { createOffscreenBridge } from "./core/offscreenBridge.js";
 
 import { createOperationQueue } from "./core/operationQueue.js";
@@ -332,17 +332,15 @@ class BackgroundPomodoroManager {
     return { success: true, state: this.getState() };
   }
 
-  async playNotification(context) {
+  async playNotification() {
     if (!this.audioEnabled) {
       return { success: true, skipped: true };
     }
 
-    const audioUrls = getPomodoroAudioFiles(context).map((filename) =>
-      this.chromeApi.runtime.getURL(`audio/${filename}`),
-    );
+    const audioUrl = this.chromeApi.runtime.getURL(`audio/${getAlarmAudioUrl()}`);
     return this.offscreenBridge.send({
-      type: "PLAY_POMODORO_AUDIO",
-      audioUrls,
+      type: "START_ALARM",
+      audioUrl,
     });
   }
 
@@ -418,9 +416,10 @@ class BackgroundPomodoroManager {
 }
 
 export class FocusSessionManager {
-  constructor(chromeApi, { ambientManager }) {
+  constructor(chromeApi, ambientManager, offscreenBridge) {
     this.chromeApi = chromeApi;
     this.ambientManager = ambientManager;
+    this.offscreenBridge = offscreenBridge;
     this.completionPromise = null;
     this.ready = this.loadState();
   }
@@ -852,7 +851,24 @@ export class FocusSessionManager {
     }
 
     this.broadcastStateUpdate(completedSession);
+
+    const audioUrl = this.chromeApi.runtime.getURL(`audio/${getAlarmAudioUrl()}`);
+    try {
+      await this.offscreenBridge.send({
+        type: "START_ALARM",
+        audioUrl,
+      });
+    } catch (error) {
+      console.error("Unable to play Focus alarm:", error);
+    }
+
     return { success: true, activeSession: completedSession };
+  }
+
+  async stopAlarm() {
+    await this.ready;
+    await this.offscreenBridge.send({ type: "STOP_ALARM" });
+    return { success: true };
   }
 
   async saveTemplate(inputTemplate) {
@@ -945,9 +961,7 @@ const pomodoroManager = new BackgroundPomodoroManager(
   chromeApi,
   offscreenBridge,
 );
-export const focusManager = new FocusSessionManager(chromeApi, {
-  ambientManager,
-});
+export const focusManager = new FocusSessionManager(chromeApi, ambientManager, offscreenBridge);
 
 const blockerOperationQueue = createOperationQueue();
 const pomodoroOperationQueue = createOperationQueue();
@@ -996,6 +1010,11 @@ chromeApi.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             message.blockedUrls,
           ),
         ),
+      );
+    case "FOCUS_STOP_ALARM":
+      return respond(
+        sendResponse,
+        focusOperationQueue.run(() => focusManager.stopAlarm()),
       );
     case "POMODORO_START":
       return respond(

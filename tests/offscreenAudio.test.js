@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   createOffscreenAudioController,
   createOffscreenMessageHandler,
-  getPomodoroAudioFiles,
+  getAlarmAudioUrl,
 } from "../src/core/audio.js";
 
 class FakeAudio {
@@ -35,30 +35,23 @@ class FakeAudio {
   pause() {}
 }
 
-test("getPomodoroAudioFiles returns alarm followed by one contextual clip", () => {
-  assert.deepEqual(
-    getPomodoroAudioFiles("break", () => 0),
-    ["pomodoro_alarm.m4a", "break_time_1.m4a"],
-  );
-  assert.deepEqual(
-    getPomodoroAudioFiles("focus", () => 0.99),
-    ["pomodoro_alarm.m4a", "focus_time_3.m4a"],
-  );
+test("getAlarmAudioUrl returns alarm audio file", () => {
+  assert.equal(getAlarmAudioUrl(), "pomodoro_alarm.m4a");
 });
 
-test("offscreen handler awaits a complete Pomodoro sequence", async () => {
+test("offscreen handler handles START_ALARM and loops it", async () => {
   FakeAudio.played = [];
   const controller = createOffscreenAudioController({ AudioCtor: FakeAudio });
   const handleMessage = createOffscreenMessageHandler(controller);
 
   const response = await handleMessage({
-    type: "PLAY_POMODORO_AUDIO",
-    audioUrls: ["alarm.m4a", "break.m4a"],
+    type: "START_ALARM",
+    audioUrl: "alarm.m4a",
     target: "offscreen",
   });
 
   assert.deepEqual(response, { success: true });
-  assert.deepEqual(FakeAudio.played, ["alarm.m4a", "break.m4a"]);
+  assert.deepEqual(FakeAudio.played, ["alarm.m4a"]);
 });
 
 test("offscreen handler reports playback failures instead of fake success", async () => {

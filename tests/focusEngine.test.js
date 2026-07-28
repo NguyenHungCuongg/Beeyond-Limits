@@ -63,12 +63,21 @@ function createMockChrome(initialStorage = {}) {
         return "notification_id";
       },
     },
+    offscreen: {
+      async createDocument() {},
+    },
     runtime: {
       getURL(path) {
         return `chrome-extension://test/${path}`;
       },
+      async getContexts() {
+        return [];
+      },
       async sendMessage(msg) {
         broadcastMessages.push(msg);
+        if (msg.target === "offscreen") {
+          return { success: true, ready: true };
+        }
         return { success: true };
       },
       onMessage: {
@@ -272,9 +281,10 @@ serialTest(
         calls.push({ type: "update", settings });
       },
     };
-    const manager = new bg.FocusSessionManager(mock.chromeMock, {
-      ambientManager,
-    });
+    const offscreenBridge = {
+      send: async () => {},
+    };
+    const manager = new bg.FocusSessionManager(mock.chromeMock, ambientManager, offscreenBridge);
 
     await manager.startSession({
       config: {
@@ -309,6 +319,84 @@ serialTest(
       volume: 50,
     });
 
+    delete globalThis.chrome;
+  },
+);
+
+serialTest(
+  "Focus Session stops its alarm through the shared offscreen bridge",
+  async () => {
+    const mock = createMockChrome();
+    globalThis.chrome = mock.chromeMock;
+    const bg = await import(
+      `../src/background.js?test_focus_stop_alarm=${Date.now()}`
+    );
+    const messages = [];
+    const manager = new bg.FocusSessionManager(
+      mock.chromeMock,
+      { stopAllSounds: async () => {} },
+      {
+        async send(message) {
+          messages.push(message);
+          return { success: true };
+        },
+      },
+    );
+
+    const response = await manager.stopAlarm();
+
+    assert.deepEqual(response, { success: true });
+    assert.deepEqual(messages, [{ type: "STOP_ALARM" }]);
+
+    delete globalThis.chrome;
+  },
+);
+
+serialTest(
+  "Focus phase completion waits for alarm startup before a mute can run",
+  async () => {
+    const mock = createMockChrome();
+    globalThis.chrome = mock.chromeMock;
+    const bg = await import(
+      `../src/background.js?test_focus_alarm_order=${Date.now()}`
+    );
+    let releaseAlarm;
+    const alarmStarted = new Promise((resolve) => {
+      releaseAlarm = resolve;
+    });
+    const offscreenBridge = {
+      async send(message) {
+        if (message.type === "START_ALARM") {
+          return alarmStarted;
+        }
+        return { success: true };
+      },
+    };
+    const manager = new bg.FocusSessionManager(
+      mock.chromeMock,
+      {
+        stopAllSounds: async () => {},
+        updateSettings: async () => {},
+      },
+      offscreenBridge,
+    );
+    await manager.startSession({
+      config: {
+        focusDuration: 25,
+        ambientSound: { enabled: false },
+      },
+    });
+
+    let completionSettled = false;
+    const completion = manager.completeCurrentPhase().then(() => {
+      completionSettled = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(completionSettled, false);
+
+    releaseAlarm({ success: true });
+    await completion;
     delete globalThis.chrome;
   },
 );

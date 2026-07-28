@@ -1,23 +1,5 @@
-const POMODORO_AUDIO = Object.freeze({
-  break: ["break_time_1.m4a", "break_time_2.m4a", "break_time_3.m4a"],
-  focus: ["focus_time_1.m4a", "focus_time_2.m4a", "focus_time_3.m4a"],
-});
-
-function clampVolume(volume, fallback = 0.5) {
-  return Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : fallback;
-}
-
-export function getPomodoroAudioFiles(context, random = Math.random) {
-  const candidates = POMODORO_AUDIO[context] ?? [];
-  if (candidates.length === 0) {
-    return ["pomodoro_alarm.m4a"];
-  }
-
-  const index = Math.min(
-    candidates.length - 1,
-    Math.floor(random() * candidates.length),
-  );
-  return ["pomodoro_alarm.m4a", candidates[index]];
+export function getAlarmAudioUrl() {
+  return "pomodoro_alarm.m4a";
 }
 
 export function createOffscreenAudioController({
@@ -29,34 +11,41 @@ export function createOffscreenAudioController({
   }
 
   const ambientSounds = new Map();
-  let pomodoroQueue = Promise.resolve();
+  let alarmAudio = null;
+
+  function clampVolume(volume, fallback = 0.5) {
+    return Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : fallback;
+  }
 
   function stopAudio(audio) {
     audio.pause();
     audio.currentTime = 0;
   }
 
-  function playUntilEnded(audioUrl, volume = 0.7) {
-    return new Promise((resolve, reject) => {
-      const audio = new AudioCtor(audioUrl);
-      let settled = false;
+  async function startAlarm(audioUrl, volume = 0.7) {
+    if (!audioUrl) throw new Error("Alarm audio URL is required");
 
-      const finish = (callback, value) => {
-        if (settled) return;
-        settled = true;
-        audio.onended = null;
-        audio.onerror = null;
-        callback(value);
-      };
+    if (alarmAudio) {
+      stopAudio(alarmAudio);
+    }
 
-      audio.volume = clampVolume(volume, 0.7);
-      audio.loop = false;
-      audio.onended = () => finish(resolve);
-      audio.onerror = () =>
-        finish(reject, new Error(`Unable to play ${audioUrl}`));
+    alarmAudio = new AudioCtor(audioUrl);
+    alarmAudio.loop = true;
+    alarmAudio.volume = clampVolume(volume, 0.7);
 
-      Promise.resolve(audio.play()).catch((error) => finish(reject, error));
-    });
+    try {
+      await alarmAudio.play();
+    } catch (error) {
+      alarmAudio = null;
+      throw error;
+    }
+  }
+
+  function stopAlarm() {
+    if (alarmAudio) {
+      stopAudio(alarmAudio);
+      alarmAudio = null;
+    }
   }
 
   async function startAmbientSound(soundKey, audioUrl, volume) {
@@ -114,24 +103,9 @@ export function createOffscreenAudioController({
     setTimeoutFn(() => stopAudio(audio), 3000);
   }
 
-  function playPomodoroAudio(audioUrls) {
-    if (!Array.isArray(audioUrls) || audioUrls.length === 0) {
-      return Promise.reject(new Error("Pomodoro audio sequence is empty"));
-    }
-
-    const sequence = async () => {
-      for (const audioUrl of audioUrls) {
-        await playUntilEnded(audioUrl);
-      }
-    };
-
-    const next = pomodoroQueue.then(sequence, sequence);
-    pomodoroQueue = next.catch(() => {});
-    return next;
-  }
-
   return {
-    playPomodoroAudio,
+    startAlarm,
+    stopAlarm,
     startAmbientSound,
     stopAmbientSound,
     stopAllAmbientSounds,
@@ -146,8 +120,11 @@ export function createOffscreenMessageHandler(controller) {
       switch (message.type) {
         case "PING_OFFSCREEN":
           return { success: true, ready: true };
-        case "PLAY_POMODORO_AUDIO":
-          await controller.playPomodoroAudio(message.audioUrls);
+        case "START_ALARM":
+          await controller.startAlarm(message.audioUrl, message.volume);
+          return { success: true };
+        case "STOP_ALARM":
+          controller.stopAlarm();
           return { success: true };
         case "START_AMBIENT_SOUND":
           await controller.startAmbientSound(
