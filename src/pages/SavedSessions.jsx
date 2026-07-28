@@ -136,16 +136,17 @@ function SavedSessions({ onNavigate, focusSession, onSelectTemplate }) {
         )}
       </div>
 
-      <ConfirmDialog
-        isOpen={!!templateToDelete}
-        title="Delete Template?"
-        message={`Are you sure you want to delete "${templateToDelete?.name}"?`}
-        confirmText="Delete"
-        cancelText="Cancel"
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => setTemplateToDelete(null)}
-        isDestructive
-      />
+      {templateToDelete && (
+        <ConfirmDialog
+          title="Delete Template?"
+          message={`Are you sure you want to delete "${templateToDelete.name}"?`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setTemplateToDelete(null)}
+          isDestructive
+        />
+      )}
     </div>
   );
 }
