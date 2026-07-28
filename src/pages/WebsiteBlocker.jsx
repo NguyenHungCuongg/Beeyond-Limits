@@ -16,7 +16,7 @@ const DEFAULT_BLOCKED_URLS = [
 const hasExtensionStorage =
   typeof chrome !== "undefined" && Boolean(chrome.storage?.local);
 
-function WebsiteBlocker({ onNavigate }) {
+function WebsiteBlocker({ onNavigate, focusSession }) {
   const [blockedUrls, setBlockedUrls] = useState([]);
   const [isBlocking, setIsBlocking] = useState(false);
   const [newUrl, setNewUrl] = useState("");
@@ -155,10 +155,18 @@ function WebsiteBlocker({ onNavigate }) {
         </h1>
       </div>
 
+      {focusSession?.activeSession && (
+        <div className="bg-mustard text-ink brutal-border p-3 mb-6 font-mono text-sm font-bold uppercase">
+          Focus Session is controlling website blocking. Changes here will apply after the session.
+        </div>
+      )}
+
       <div className="bg-paper brutal-border brutal-shadow p-4 flex justify-between items-center mb-6">
         <div className="flex items-center space-x-3">
           <ShieldCheck size={24} className="text-ink" />
-          <h2 className="font-display text-2xl uppercase">Blocking Status</h2>
+          <h2 className="font-display text-2xl uppercase">
+            {focusSession?.activeSession ? "Manual State (Inactive)" : "Blocking Status"}
+          </h2>
         </div>
         <button
           type="button"

@@ -6,8 +6,13 @@ function FeatureCard({
   title,
   tags,
   description,
+  // eslint-disable-next-line no-unused-vars
   Icon,
   iconLabel,
+  bgColor,
+  textColor,
+  dividerColor,
+  halftoneClass,
 }) {
   return (
     <button
@@ -35,9 +40,9 @@ function FeatureCard({
         >
           {tags}
         </div>
-        {/* <p className={`font-sans text-sm ${textColor} mt-3 font-medium`}>
+        <p className={`font-sans text-sm ${textColor} mt-3 font-medium`}>
           {description}
-        </p> */}
+        </p>
       </div>
       {/* Right: Icon Box */}
       <div className="hidden sm:flex flex-col items-center justify-center p-4 border-l-[3px] border-ink bg-paper w-24 shrink-0">

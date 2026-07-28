@@ -30,13 +30,13 @@ export default function SessionGoalField({ value, onChange }) {
   };
 
   const handleTaskSelect = (e) => {
-    const taskId = e.target.value ? Number(e.target.value) : null;
-    if (!taskId) {
+    const selectedId = e.target.value;
+    if (!selectedId) {
       onChange({ type: "text", text: "", taskId: null });
       setMode("text");
       return;
     }
-    const task = activeTasks.find((t) => t.id === taskId);
+    const task = activeTasks.find((t) => String(t.id) === selectedId);
     if (task) {
       onChange({ type: "task", text: task.text, taskId: task.id });
     }
@@ -45,7 +45,10 @@ export default function SessionGoalField({ value, onChange }) {
   return (
     <div className="mb-5">
       <div className="flex justify-between items-end mb-2">
-        <label htmlFor="focus-goal" className="font-mono font-bold uppercase text-xs">
+        <label
+          htmlFor="focus-goal"
+          className="font-mono font-bold uppercase text-xs"
+        >
           What will you focus on?
         </label>
         {activeTasks.length > 0 && (
@@ -72,7 +75,11 @@ export default function SessionGoalField({ value, onChange }) {
       ) : (
         <select
           id="focus-goal"
-          value={value?.type === "task" ? (value.taskId || "") : ""}
+          value={
+            value?.type === "task" && value.taskId != null
+              ? String(value.taskId)
+              : ""
+          }
           onChange={handleTaskSelect}
           className="w-full brutal-border brutal-shadow-sm px-3 py-3 bg-paper font-mono focus:outline-none focus:bg-canvas appearance-none cursor-pointer"
         >

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
   Play,
@@ -7,6 +7,7 @@ import {
 import SessionGoalField from "../components/SessionGoalField";
 import SessionDurationPicker from "../components/SessionDurationPicker";
 import SessionEnvironment from "../components/SessionEnvironment";
+import SessionBlockerEditor from "../components/SessionBlockerEditor";
 import toast from "react-hot-toast";
 
 function getInitialConfig(preferences, template) {
@@ -19,6 +20,7 @@ function getInitialConfig(preferences, template) {
     blocker: {
       enabled: source.blocker?.enabled ?? source.blockerEnabled ?? true,
       presetId: source.blocker?.presetId || "default",
+      blockedUrls: source.blocker?.blockedUrls || [],
     },
     ambientSound: {
       enabled: Boolean(source.ambientSound?.enabled),
@@ -36,10 +38,33 @@ function FocusSessionSetup({ onNavigate, focusSession, template = null }) {
   
   const [config, setConfig] = useState(initialConfig);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [showBlockerEditor, setShowBlockerEditor] = useState(false);
   const [templateName, setTemplateName] = useState(template ? template.name : "");
+  const configRef = useRef(initialConfig);
+
+  async function persistConfig(nextConfig) {
+    if (template) {
+      await focusSession.updateTemplate({
+        ...template,
+        focusDuration: nextConfig.focusDuration,
+        breakDuration: nextConfig.breakDuration,
+        goal: nextConfig.goal,
+        blocker: nextConfig.blocker,
+        ambientSound: nextConfig.ambientSound,
+      });
+      return;
+    }
+
+    await focusSession.updatePreferences(nextConfig);
+  }
 
   function updateConfig(patch) {
-    setConfig((current) => ({ ...current, ...patch }));
+    const nextConfig = { ...configRef.current, ...patch };
+    configRef.current = nextConfig;
+    setConfig(nextConfig);
+    void persistConfig(nextConfig).catch(() => {
+      toast.error("Could not save Focus Session settings");
+    });
   }
 
   async function handleStart(event) {
@@ -84,14 +109,22 @@ function FocusSessionSetup({ onNavigate, focusSession, template = null }) {
 
   return (
     <div className="bg-canvas min-h-screen text-ink p-5 overflow-auto pb-20">
-      <div className="max-w-md mx-auto">
-        <button
-          type="button"
-          onClick={() => onNavigate("home")}
-          className="font-mono text-sm font-bold uppercase flex items-center gap-2 mb-5 hover:opacity-70 transition-opacity"
-        >
-          <ChevronLeft size={16} /> Back
-        </button>
+      <div className="max-w-md mx-auto h-full">
+        {showBlockerEditor ? (
+          <SessionBlockerEditor
+            blockedUrls={config.blocker.blockedUrls || []}
+            onUpdate={(urls) => updateConfig({ blocker: { ...config.blocker, blockedUrls: urls } })}
+            onClose={() => setShowBlockerEditor(false)}
+          />
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => onNavigate("home")}
+              className="font-mono text-sm font-bold uppercase flex items-center gap-2 mb-5 hover:opacity-70 transition-opacity"
+            >
+              <ChevronLeft size={16} /> Back
+            </button>
 
         <p className="font-mono text-xs font-bold uppercase mb-2">
           {template ? "Edit Session" : "New Focus Session"}
@@ -118,7 +151,7 @@ function FocusSessionSetup({ onNavigate, focusSession, template = null }) {
             ambientSound={config.ambientSound}
             onBlockerChange={(blocker) => updateConfig({ blocker })}
             onAmbientChange={(ambientSound) => updateConfig({ ambientSound })}
-            onNavigate={onNavigate}
+            onEditBlocklist={() => setShowBlockerEditor(true)}
           />
 
           {focusSession.error && (
@@ -183,6 +216,8 @@ function FocusSessionSetup({ onNavigate, focusSession, template = null }) {
             )}
           </div>
         </form>
+        </>
+        )}
       </div>
     </div>
   );

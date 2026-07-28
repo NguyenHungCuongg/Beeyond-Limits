@@ -106,8 +106,8 @@ test("initializeFocusStorage populates empty storage with defaults without throw
 });
 
 test("initializeFocusStorage preserves existing user templates and custom preferences", async () => {
-  const customTemplate = { id: "custom_1", name: "Custom 1", focusDuration: 35 };
-  const customPrefs = { focusDuration: 40, breakDuration: 8, blockerEnabled: false, ambientSound: { enabled: true, soundId: "rain", volume: 80 } };
+  const customTemplate = { id: "custom_1", name: "Custom 1", focusDuration: 35, blocker: { enabled: true, blockedUrls: [] } };
+  const customPrefs = { focusDuration: 40, breakDuration: 8, blockerEnabled: false, blocker: { enabled: false, blockedUrls: [] }, ambientSound: { enabled: true, soundId: "rain", volume: 80 } };
   const customHistory = [{ id: "h1", runtimeId: "session_1", status: FOCUS_STATES.FOCUS_COMPLETED }];
 
   const mockStorage = createMockStorage({
@@ -121,6 +121,30 @@ test("initializeFocusStorage preserves existing user templates and custom prefer
   assert.deepEqual(state.focusSessionTemplates, [customTemplate]);
   assert.deepEqual(state.focusSessionPreferences, customPrefs);
   assert.deepEqual(state.focusSessionHistory, customHistory);
+});
+
+test("initializeFocusStorage seeds legacy Focus preferences from the manual blocklist once", async () => {
+  const manualBlocklist = [{ id: "youtube", url: "youtube.com" }];
+  const legacyPreferences = {
+    focusDuration: 50,
+    blockerEnabled: true,
+    blocker: { enabled: true },
+  };
+  const mockStorage = createMockStorage({
+    blockedUrls: manualBlocklist,
+    isBlocking: true,
+    [STORAGE_KEYS.PREFERENCES]: legacyPreferences,
+    [STORAGE_KEYS.TEMPLATES]: [{ id: "legacy-template", blocker: { enabled: true } }],
+    [STORAGE_KEYS.HISTORY]: [],
+  });
+
+  await initializeFocusStorage(mockStorage);
+
+  assert.deepEqual(
+    mockStorage._getRaw(STORAGE_KEYS.PREFERENCES).blocker.blockedUrls,
+    manualBlocklist,
+  );
+  assert.deepEqual(mockStorage._getRaw("blockedUrls"), manualBlocklist);
 });
 
 test("initializeFocusStorage does not overwrite an existing active session", async () => {
@@ -368,6 +392,27 @@ test("updateFocusPreferences merges partial updates into existing preferences", 
   assert.equal(updated.ambientSound.enabled, true);
   assert.equal(updated.ambientSound.soundId, "rain");
   assert.equal(updated.ambientSound.volume, 50);
+});
+
+test("updateFocusPreferences preserves the session blocklist during unrelated updates", async () => {
+  const sessionBlocklist = [{ id: "youtube", url: "youtube.com" }];
+  const mockStorage = createMockStorage({
+    [STORAGE_KEYS.PREFERENCES]: {
+      ...DEFAULT_FOCUS_SETTINGS,
+      blocker: { enabled: true, blockedUrls: sessionBlocklist },
+    },
+  });
+
+  const updated = await updateFocusPreferences(
+    { focusDuration: 50 },
+    mockStorage,
+  );
+
+  assert.deepEqual(updated.blocker.blockedUrls.map(({ id, url }) => ({ id, url })), sessionBlocklist);
+  assert.deepEqual(
+    mockStorage._getRaw(STORAGE_KEYS.PREFERENCES).blocker.blockedUrls.map(({ id, url }) => ({ id, url })),
+    sessionBlocklist,
+  );
 });
 
 test("updateFocusPreferences clamps out-of-bound duration and volume settings", async () => {

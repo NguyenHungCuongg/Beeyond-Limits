@@ -2,6 +2,7 @@
 import {
   syncBlockingRulesFromStorage,
   updateBlockingConfiguration,
+  applyBlockingRules,
 } from "./core/blocking.js";
 import {
   completePomodoroPhase,
@@ -33,6 +34,8 @@ import {
   appendFocusHistory,
   getFocusPreferences,
   updateFocusPreferences,
+  saveFocusTemplate,
+  deleteFocusTemplate,
   initializeFocusStorage,
 } from "./core/focusStorage.js";
 
@@ -415,10 +418,97 @@ class BackgroundPomodoroManager {
 }
 
 export class FocusSessionManager {
-  constructor(chromeApi) {
+  constructor(chromeApi, { ambientManager }) {
     this.chromeApi = chromeApi;
+    this.ambientManager = ambientManager;
     this.completionPromise = null;
     this.ready = this.loadState();
+  }
+
+  async applySessionBlocker(enabled, blockedUrls) {
+    if (!this.chromeApi.declarativeNetRequest?.getDynamicRules) {
+      return { success: true, skipped: true };
+    }
+
+    const result = await blockerOperationQueue.run(() => applyBlockingRules(
+      this.chromeApi.declarativeNetRequest,
+      enabled,
+      blockedUrls,
+    ));
+    return { success: true, ...result };
+  }
+
+  async stopSessionAmbient() {
+    if (
+      this.ambientManager?.stopAllSounds &&
+      this.chromeApi.runtime?.getContexts &&
+      this.chromeApi.offscreen?.createDocument
+    ) {
+      await this.ambientManager.stopAllSounds();
+    }
+  }
+
+  async startSessionAmbient(ambientSound) {
+    if (
+      !ambientSound?.enabled ||
+      !ambientSound.soundId ||
+      !this.ambientManager?.updateSettings ||
+      !this.chromeApi.runtime?.getContexts ||
+      !this.chromeApi.offscreen?.createDocument
+    ) {
+      return;
+    }
+
+    await this.ambientManager.updateSettings({
+      [ambientSound.soundId]: {
+        enabled: true,
+        volume: ambientSound.volume,
+      },
+    });
+  }
+
+  async restoreEnvironment(session) {
+    const previous = session?.preSessionState;
+    if (!previous) {
+      return;
+    }
+
+    await this.applySessionBlocker(
+      previous.blocker?.isBlocking,
+      previous.blocker?.blockedUrls ?? [],
+    );
+
+    if (
+      previous.ambientSettings &&
+      this.ambientManager?.updateSettings &&
+      this.chromeApi.runtime?.getContexts &&
+      this.chromeApi.offscreen?.createDocument
+    ) {
+      await this.ambientManager.updateSettings(previous.ambientSettings);
+    } else {
+      await this.stopSessionAmbient();
+    }
+  }
+
+  async captureEnvironmentState() {
+    const data = await this.chromeApi.storage.local.get([
+      "isBlocking",
+      "blockedUrls",
+      "ambientSettings",
+      "pomodoroState",
+    ]);
+
+    return {
+      blocker: {
+        isBlocking: Boolean(data.isBlocking),
+        blockedUrls: Array.isArray(data.blockedUrls) ? data.blockedUrls : [],
+      },
+      ambientSettings:
+        data.ambientSettings && typeof data.ambientSettings === "object"
+          ? data.ambientSettings
+          : null,
+      pomodoroActive: Boolean(data.pomodoroState?.isActive),
+    };
   }
 
   async loadState() {
@@ -504,14 +594,37 @@ export class FocusSessionManager {
       preSessionState: inputConfig.preSessionState,
     };
 
+    const environment = await this.captureEnvironmentState();
+    if (environment.pomodoroActive) {
+      return {
+        success: false,
+        error: "Cannot start Focus Session while Pomodoro is active",
+      };
+    }
+    config.preSessionState = environment;
+
     const session = createFocusSession(config, Date.now());
     await setActiveFocusSession(session, this.chromeApi);
-    await this.chromeApi.alarms.create(FOCUS_ALARM, {
-      when: session.phaseEndsAt,
-    });
 
-    this.broadcastStateUpdate(session);
-    return { success: true, activeSession: session };
+    try {
+      await this.applySessionBlocker(
+        session.snapshot.blocker.enabled,
+        session.snapshot.blocker.blockedUrls,
+      );
+      await this.stopSessionAmbient();
+      await this.startSessionAmbient(session.snapshot.ambientSound);
+      await this.chromeApi.alarms.create(FOCUS_ALARM, {
+        when: session.phaseEndsAt,
+      });
+
+      this.broadcastStateUpdate(session);
+      return { success: true, activeSession: session };
+    } catch (error) {
+      await this.chromeApi.alarms.clear(FOCUS_ALARM).catch(() => {});
+      await clearActiveFocusSession(this.chromeApi).catch(() => {});
+      await this.restoreEnvironment(session).catch(() => {});
+      throw error;
+    }
   }
 
   async pauseSession(payload = {}) {
@@ -527,6 +640,7 @@ export class FocusSessionManager {
     const updated = pauseFocusSession(session, Date.now());
     await this.chromeApi.alarms.clear(FOCUS_ALARM);
     await setActiveFocusSession(updated, this.chromeApi);
+    await this.stopSessionAmbient();
 
     this.broadcastStateUpdate(updated);
     return { success: true, activeSession: updated };
@@ -549,6 +663,12 @@ export class FocusSessionManager {
         when: updated.phaseEndsAt,
       });
     }
+    await this.startSessionAmbient(
+      updated.status === FOCUS_STATES.ACTIVE_FOCUS &&
+        updated.phase === FOCUS_PHASES.FOCUS
+        ? updated.snapshot?.ambientSound
+        : null,
+    );
 
     this.broadcastStateUpdate(updated);
     return { success: true, activeSession: updated };
@@ -589,6 +709,8 @@ export class FocusSessionManager {
     };
 
     await appendFocusHistory(historyRecord, this.chromeApi);
+    await this.stopSessionAmbient();
+    await this.restoreEnvironment(updated);
     await clearActiveFocusSession(this.chromeApi);
 
     this.broadcastStateUpdate(null);
@@ -604,6 +726,15 @@ export class FocusSessionManager {
     if (payload.runtimeId && session.id !== payload.runtimeId) {
       return { success: false, error: "Session runtime ID mismatch" };
     }
+    if (
+      session.status !== FOCUS_STATES.FOCUS_COMPLETED &&
+      session.status !== FOCUS_STATES.BREAK_COMPLETED
+    ) {
+      return { success: false, error: "Session is not ready for a break" };
+    }
+
+    await this.applySessionBlocker(false, []);
+    await this.stopSessionAmbient();
 
     const durationMinutes = payload.durationMinutes ?? payload.breakDuration;
     const breakSession = startBreakSession(
@@ -629,8 +760,20 @@ export class FocusSessionManager {
     if (payload.runtimeId && session && session.id !== payload.runtimeId) {
       return { success: false, error: "Session runtime ID mismatch" };
     }
+    if (
+      session &&
+      ![
+        FOCUS_STATES.FOCUS_COMPLETED,
+        FOCUS_STATES.ACTIVE_BREAK,
+        FOCUS_STATES.PAUSED_BREAK,
+        FOCUS_STATES.BREAK_COMPLETED,
+      ].includes(session.status)
+    ) {
+      return { success: false, error: "Session is still in focus" };
+    }
 
     await this.chromeApi.alarms.clear(FOCUS_ALARM);
+    await this.restoreEnvironment(session);
     await clearActiveFocusSession(this.chromeApi);
 
     this.broadcastStateUpdate(null);
@@ -667,6 +810,7 @@ export class FocusSessionManager {
 
     const now = Date.now();
     const completedSession = completeFocusSession(session, now);
+    await this.stopSessionAmbient();
 
     if (session.phase === FOCUS_PHASES.FOCUS) {
       const historyRecord = {
@@ -700,6 +844,51 @@ export class FocusSessionManager {
 
     this.broadcastStateUpdate(completedSession);
     return { success: true, activeSession: completedSession };
+  }
+
+  async saveTemplate(inputTemplate) {
+    if (!inputTemplate || typeof inputTemplate !== "object") {
+      throw new Error("Invalid template");
+    }
+
+    const template = await saveFocusTemplate(inputTemplate, this.chromeApi);
+    this.broadcastStateUpdate(null);
+    return { success: true, template };
+  }
+
+  async updateTemplate(inputTemplate) {
+    if (!inputTemplate?.id) {
+      throw new Error("Template ID is required");
+    }
+    return this.saveTemplate(inputTemplate);
+  }
+
+  async duplicateTemplate(templateId) {
+    const templates = await getFocusTemplates(this.chromeApi);
+    const existing = templates.find((template) => template.id === templateId);
+    if (!existing) {
+      throw new Error("Template not found");
+    }
+
+    return this.saveTemplate({
+      ...existing,
+      id: undefined,
+      name: `${existing.name} (Copy)`,
+      isDefault: false,
+    });
+  }
+
+  async deleteTemplate(templateId) {
+    if (!templateId) {
+      throw new Error("Template ID is required");
+    }
+
+    const deleted = await deleteFocusTemplate(templateId, this.chromeApi);
+    if (!deleted) {
+      throw new Error("Template not found");
+    }
+    this.broadcastStateUpdate(null);
+    return { success: true };
   }
 
   showNotification(type, durationMinutes) {
@@ -746,7 +935,7 @@ const chromeApi = globalThis.chrome;
 const offscreenBridge = createOffscreenBridge(chromeApi);
 const ambientManager = new AmbientSoundManager(chromeApi, offscreenBridge);
 const pomodoroManager = new BackgroundPomodoroManager(chromeApi, offscreenBridge);
-export const focusManager = new FocusSessionManager(chromeApi);
+export const focusManager = new FocusSessionManager(chromeApi, { ambientManager });
 
 const blockerOperationQueue = createOperationQueue();
 const pomodoroOperationQueue = createOperationQueue();
@@ -892,6 +1081,34 @@ chromeApi.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sendResponse,
         focusOperationQueue.run(() => focusManager.updatePreferences(message)),
       );
+    case "FOCUS_SESSION_TEMPLATE_SAVE":
+      return respond(
+        sendResponse,
+        focusOperationQueue.run(() =>
+          focusManager.saveTemplate(message.template),
+        ),
+      );
+    case "FOCUS_SESSION_TEMPLATE_UPDATE":
+      return respond(
+        sendResponse,
+        focusOperationQueue.run(() =>
+          focusManager.updateTemplate(message.template),
+        ),
+      );
+    case "FOCUS_SESSION_TEMPLATE_DUPLICATE":
+      return respond(
+        sendResponse,
+        focusOperationQueue.run(() =>
+          focusManager.duplicateTemplate(message.templateId),
+        ),
+      );
+    case "FOCUS_SESSION_TEMPLATE_DELETE":
+      return respond(
+        sendResponse,
+        focusOperationQueue.run(() =>
+          focusManager.deleteTemplate(message.templateId),
+        ),
+      );
     default:
       return false;
   }
@@ -899,8 +1116,26 @@ chromeApi.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 async function synchronizeStartup() {
   try {
-    await blockerOperationQueue.run(() => syncBlockingRulesFromStorage(chromeApi));
     await focusOperationQueue.run(() => focusManager.ready);
+    if (chromeApi.declarativeNetRequest?.getDynamicRules) {
+      const state = await focusManager.getState();
+      const session = state.activeSession;
+      if (
+        session &&
+        (session.status === "active_focus" ||
+          session.status === "paused_focus" ||
+          session.status === "focus_completed")
+      ) {
+        await focusManager.applySessionBlocker(
+          Boolean(session.snapshot?.blocker?.enabled),
+          session.snapshot?.blocker?.blockedUrls ?? []
+        );
+      } else {
+        await blockerOperationQueue.run(() =>
+          syncBlockingRulesFromStorage(chromeApi)
+        );
+      }
+    }
   } catch (error) {
     console.error("Unable to synchronize startup:", error);
   }

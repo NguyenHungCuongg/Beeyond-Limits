@@ -4,6 +4,8 @@
  * Contains no side-effects or browser API calls.
  */
 
+import { sanitizeBlockedUrls } from "./blocking.js";
+
 export const FOCUS_STATES = Object.freeze({
   IDLE: "idle",
   ACTIVE_FOCUS: "active_focus",
@@ -33,10 +35,20 @@ export const FOCUS_BOUNDS = Object.freeze({
   MAX_HISTORY_RECORDS: 500,
 });
 
+export const AMBIENT_SOUND_IDS = Object.freeze([
+  "bird",
+  "campfire",
+  "ocean_waves",
+  "rain",
+  "thunder",
+  "wind",
+]);
+
 export const DEFAULT_FOCUS_SETTINGS = Object.freeze({
   focusDuration: FOCUS_BOUNDS.DEFAULT_FOCUS_MINUTES,
   breakDuration: FOCUS_BOUNDS.DEFAULT_BREAK_MINUTES,
   blockerEnabled: true,
+  blocker: Object.freeze({ enabled: true, blockedUrls: [] }),
   ambientSound: Object.freeze({
     enabled: false,
     soundId: null,
@@ -51,7 +63,7 @@ export const DEFAULT_TEMPLATES = Object.freeze([
     focusDuration: 25,
     breakDuration: 5,
     goal: Object.freeze({ type: "text", text: "", taskId: null }),
-    blocker: Object.freeze({ enabled: true, presetId: "default" }),
+    blocker: Object.freeze({ enabled: true, blockedUrls: [] }),
     ambientSound: Object.freeze({ enabled: false, soundId: null, volume: 50 }),
     isDefault: true,
   }),
@@ -61,7 +73,7 @@ export const DEFAULT_TEMPLATES = Object.freeze([
     focusDuration: 50,
     breakDuration: 10,
     goal: Object.freeze({ type: "text", text: "", taskId: null }),
-    blocker: Object.freeze({ enabled: true, presetId: "default" }),
+    blocker: Object.freeze({ enabled: true, blockedUrls: [] }),
     ambientSound: Object.freeze({ enabled: false, soundId: null, volume: 50 }),
     isDefault: true,
   }),
@@ -71,7 +83,7 @@ export const DEFAULT_TEMPLATES = Object.freeze([
     focusDuration: 15,
     breakDuration: 3,
     goal: Object.freeze({ type: "text", text: "", taskId: null }),
-    blocker: Object.freeze({ enabled: true, presetId: "default" }),
+    blocker: Object.freeze({ enabled: true, blockedUrls: [] }),
     ambientSound: Object.freeze({ enabled: false, soundId: null, volume: 50 }),
     isDefault: true,
   }),
@@ -89,7 +101,10 @@ function getLocalDateString(dateInput = new Date()) {
     d = new Date(y, m - 1, dNum);
   } else if (dateInput instanceof Date) {
     d = dateInput;
-  } else if (typeof dateInput === "number" || (typeof dateInput === "string" && dateInput)) {
+  } else if (
+    typeof dateInput === "number" ||
+    (typeof dateInput === "string" && dateInput)
+  ) {
     d = new Date(dateInput);
   } else {
     d = new Date();
@@ -108,14 +123,14 @@ export function normalizeFocusConfig(config = {}) {
     config.focusDuration,
     FOCUS_BOUNDS.MIN_FOCUS_MINUTES,
     FOCUS_BOUNDS.MAX_FOCUS_MINUTES,
-    FOCUS_BOUNDS.DEFAULT_FOCUS_MINUTES
+    FOCUS_BOUNDS.DEFAULT_FOCUS_MINUTES,
   );
 
   const breakDuration = clamp(
     config.breakDuration,
     FOCUS_BOUNDS.MIN_BREAK_MINUTES,
     FOCUS_BOUNDS.MAX_BREAK_MINUTES,
-    FOCUS_BOUNDS.DEFAULT_BREAK_MINUTES
+    FOCUS_BOUNDS.DEFAULT_BREAK_MINUTES,
   );
 
   let rawGoalText = "";
@@ -135,21 +150,34 @@ export function normalizeFocusConfig(config = {}) {
   const goalText = rawGoalText.slice(0, FOCUS_BOUNDS.MAX_GOAL_LENGTH);
   const goalType = taskId !== null ? "task" : "text";
 
-  const blockerEnabled = Boolean(config.blocker?.enabled ?? config.blockerEnabled ?? true);
-  const presetId = typeof config.blocker?.presetId === "string" ? config.blocker.presetId : "default";
+  const blockerEnabled = Boolean(
+    config.blocker?.enabled ?? config.blockerEnabled ?? true,
+  );
+  const presetId =
+    typeof config.blocker?.presetId === "string"
+      ? config.blocker.presetId
+      : "default";
+  
+  const blockedUrls = Array.isArray(config.blocker?.blockedUrls)
+    ? sanitizeBlockedUrls(config.blocker.blockedUrls)
+    : [];
 
   const soundEnabled = Boolean(config.ambientSound?.enabled ?? false);
-  const soundId = typeof config.ambientSound?.soundId === "string" ? config.ambientSound.soundId : null;
+  const soundId =
+    typeof config.ambientSound?.soundId === "string"
+      ? config.ambientSound.soundId
+      : null;
+  const validSoundId = AMBIENT_SOUND_IDS.includes(soundId) ? soundId : null;
   const volume = clamp(config.ambientSound?.volume, 0, 100, 50);
 
   return {
     focusDuration,
     breakDuration,
     goal: { type: goalType, text: goalText, taskId },
-    blocker: { enabled: blockerEnabled, presetId },
+    blocker: { enabled: blockerEnabled, presetId, blockedUrls },
     ambientSound: {
-      enabled: soundEnabled && Boolean(soundId),
-      soundId: soundEnabled ? soundId : null,
+      enabled: soundEnabled && Boolean(validSoundId),
+      soundId: soundEnabled ? validSoundId : null,
       volume,
     },
   };
@@ -184,11 +212,17 @@ export function createFocusSession(config = {}, nowTimestamp = Date.now()) {
 export function calculateRemainingSeconds(session, nowTimestamp = Date.now()) {
   if (!session || typeof session !== "object") return 0;
 
-  if (session.status === FOCUS_STATES.PAUSED_FOCUS || session.status === FOCUS_STATES.PAUSED_BREAK) {
+  if (
+    session.status === FOCUS_STATES.PAUSED_FOCUS ||
+    session.status === FOCUS_STATES.PAUSED_BREAK
+  ) {
     return Math.max(0, Math.ceil(session.remainingSeconds || 0));
   }
 
-  if (session.status === FOCUS_STATES.ACTIVE_FOCUS || session.status === FOCUS_STATES.ACTIVE_BREAK) {
+  if (
+    session.status === FOCUS_STATES.ACTIVE_FOCUS ||
+    session.status === FOCUS_STATES.ACTIVE_BREAK
+  ) {
     if (!session.phaseEndsAt) return 0;
     const diffMs = session.phaseEndsAt - nowTimestamp;
     return Math.max(0, Math.ceil(diffMs / 1000));
@@ -197,10 +231,16 @@ export function calculateRemainingSeconds(session, nowTimestamp = Date.now()) {
   return 0;
 }
 
-export function calculateProgressPercentage(session, nowTimestamp = Date.now()) {
+export function calculateProgressPercentage(
+  session,
+  nowTimestamp = Date.now(),
+) {
   if (!session || typeof session !== "object") return 0;
 
-  if (session.status === FOCUS_STATES.FOCUS_COMPLETED || session.status === FOCUS_STATES.BREAK_COMPLETED) {
+  if (
+    session.status === FOCUS_STATES.FOCUS_COMPLETED ||
+    session.status === FOCUS_STATES.BREAK_COMPLETED
+  ) {
     return 100;
   }
 
@@ -220,7 +260,10 @@ export function calculateProgressPercentage(session, nowTimestamp = Date.now()) 
 
 export function isSessionExpired(session, nowTimestamp = Date.now()) {
   if (!session || typeof session !== "object") return false;
-  if (session.status !== FOCUS_STATES.ACTIVE_FOCUS && session.status !== FOCUS_STATES.ACTIVE_BREAK) {
+  if (
+    session.status !== FOCUS_STATES.ACTIVE_FOCUS &&
+    session.status !== FOCUS_STATES.ACTIVE_BREAK
+  ) {
     return false;
   }
   return session.phaseEndsAt !== null && nowTimestamp >= session.phaseEndsAt;
@@ -228,7 +271,10 @@ export function isSessionExpired(session, nowTimestamp = Date.now()) {
 
 export function pauseFocusSession(session, nowTimestamp = Date.now()) {
   if (!session || typeof session !== "object") return session;
-  if (session.status !== FOCUS_STATES.ACTIVE_FOCUS && session.status !== FOCUS_STATES.ACTIVE_BREAK) {
+  if (
+    session.status !== FOCUS_STATES.ACTIVE_FOCUS &&
+    session.status !== FOCUS_STATES.ACTIVE_BREAK
+  ) {
     return session;
   }
 
@@ -245,7 +291,10 @@ export function pauseFocusSession(session, nowTimestamp = Date.now()) {
 
 export function resumeFocusSession(session, nowTimestamp = Date.now()) {
   if (!session || typeof session !== "object") return session;
-  if (session.status !== FOCUS_STATES.PAUSED_FOCUS && session.status !== FOCUS_STATES.PAUSED_BREAK) {
+  if (
+    session.status !== FOCUS_STATES.PAUSED_FOCUS &&
+    session.status !== FOCUS_STATES.PAUSED_BREAK
+  ) {
     return session;
   }
 
@@ -277,17 +326,28 @@ export function completeFocusSession(session, nowTimestamp = Date.now()) {
 
   return {
     ...session,
-    status: isFocus ? FOCUS_STATES.FOCUS_COMPLETED : FOCUS_STATES.BREAK_COMPLETED,
-    completedAt: isFocus ? (session.completedAt || nowTimestamp) : session.completedAt,
+    status: isFocus
+      ? FOCUS_STATES.FOCUS_COMPLETED
+      : FOCUS_STATES.BREAK_COMPLETED,
+    completedAt: isFocus
+      ? session.completedAt || nowTimestamp
+      : session.completedAt,
     phaseEndsAt: null,
     remainingSeconds: 0,
   };
 }
 
-export function abandonFocusSession(session, reason = "user_stopped", nowTimestamp = Date.now()) {
+export function abandonFocusSession(
+  session,
+  reason = "user_stopped",
+  nowTimestamp = Date.now(),
+) {
   if (!session || typeof session !== "object") return session;
 
-  if (session.status === FOCUS_STATES.FOCUS_COMPLETED || session.status === FOCUS_STATES.BREAK_COMPLETED) {
+  if (
+    session.status === FOCUS_STATES.FOCUS_COMPLETED ||
+    session.status === FOCUS_STATES.BREAK_COMPLETED
+  ) {
     return session;
   }
 
@@ -300,10 +360,17 @@ export function abandonFocusSession(session, reason = "user_stopped", nowTimesta
   };
 }
 
-export function startBreakSession(session, durationMinutes = null, nowTimestamp = Date.now()) {
+export function startBreakSession(
+  session,
+  durationMinutes = null,
+  nowTimestamp = Date.now(),
+) {
   if (!session || typeof session !== "object") return session;
 
-  if (session.status !== FOCUS_STATES.FOCUS_COMPLETED && session.status !== FOCUS_STATES.BREAK_COMPLETED) {
+  if (
+    session.status !== FOCUS_STATES.FOCUS_COMPLETED &&
+    session.status !== FOCUS_STATES.BREAK_COMPLETED
+  ) {
     return session;
   }
 
@@ -311,7 +378,7 @@ export function startBreakSession(session, durationMinutes = null, nowTimestamp 
     durationMinutes ?? session.snapshot?.breakDuration,
     FOCUS_BOUNDS.MIN_BREAK_MINUTES,
     FOCUS_BOUNDS.MAX_BREAK_MINUTES,
-    FOCUS_BOUNDS.DEFAULT_BREAK_MINUTES
+    FOCUS_BOUNDS.DEFAULT_BREAK_MINUTES,
   );
 
   const durationSeconds = breakMins * 60;
@@ -327,7 +394,10 @@ export function startBreakSession(session, durationMinutes = null, nowTimestamp 
   };
 }
 
-export function aggregateDailyProgress(historyRecords = [], targetDateStr = null) {
+export function aggregateDailyProgress(
+  historyRecords = [],
+  targetDateStr = null,
+) {
   const dateKey = getLocalDateString(targetDateStr);
 
   const records = Array.isArray(historyRecords) ? historyRecords : [];
@@ -340,14 +410,19 @@ export function aggregateDailyProgress(historyRecords = [], targetDateStr = null
   for (const record of daysRecords) {
     if (record.status === FOCUS_STATES.FOCUS_COMPLETED) {
       completedSessions += 1;
-      focusMinutes += record.focusDurationMinutes || Math.round((record.actualFocusSeconds || 0) / 60);
+      focusMinutes +=
+        record.focusDurationMinutes ||
+        Math.round((record.actualFocusSeconds || 0) / 60);
     } else if (record.status === FOCUS_STATES.ABANDONED) {
       abandonedSessions += 1;
     }
   }
 
   const totalAttempted = completedSessions + abandonedSessions;
-  const completionRate = totalAttempted > 0 ? Number((completedSessions / totalAttempted).toFixed(2)) : 0;
+  const completionRate =
+    totalAttempted > 0
+      ? Number((completedSessions / totalAttempted).toFixed(2))
+      : 0;
 
   return {
     dateStr: dateKey,
@@ -358,17 +433,25 @@ export function aggregateDailyProgress(historyRecords = [], targetDateStr = null
   };
 }
 
-export function calculateStreakDays(historyRecords = [], referenceDateStr = null) {
+export function calculateStreakDays(
+  historyRecords = [],
+  referenceDateStr = null,
+) {
   if (!Array.isArray(historyRecords) || historyRecords.length === 0) return 0;
 
   const datesWithCompletions = new Set(
     historyRecords
-      .filter((r) => r && r.status === FOCUS_STATES.FOCUS_COMPLETED && r.dateStr)
-      .map((r) => r.dateStr)
+      .filter(
+        (r) => r && r.status === FOCUS_STATES.FOCUS_COMPLETED && r.dateStr,
+      )
+      .map((r) => r.dateStr),
   );
 
   let curr;
-  if (typeof referenceDateStr === "string" && /^\d{4}-\d{2}-\d{2}$/.test(referenceDateStr)) {
+  if (
+    typeof referenceDateStr === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(referenceDateStr)
+  ) {
     const [y, m, d] = referenceDateStr.split("-").map(Number);
     curr = new Date(y, m - 1, d);
   } else if (referenceDateStr instanceof Date) {
@@ -407,20 +490,28 @@ export function calculateStreakDays(historyRecords = [], referenceDateStr = null
   return streak;
 }
 
-export function pruneHistoryRecords(historyRecords = [], maxDays = 90, maxRecords = 500, nowTimestamp = Date.now()) {
+export function pruneHistoryRecords(
+  historyRecords = [],
+  maxDays = 90,
+  maxRecords = 500,
+  nowTimestamp = Date.now(),
+) {
   if (!Array.isArray(historyRecords)) return [];
 
   const cutoffMs = nowTimestamp - maxDays * 24 * 60 * 60 * 1000;
 
   const validRecords = historyRecords.filter((r) => {
     if (!r) return false;
-    const recordTime = r.completedAt || r.abandonedAt || r.endedAt || r.startedAt || 0;
+    const recordTime =
+      r.completedAt || r.abandonedAt || r.endedAt || r.startedAt || 0;
     return recordTime >= cutoffMs;
   });
 
   validRecords.sort((a, b) => {
-    const timeA = a.completedAt || a.abandonedAt || a.endedAt || a.startedAt || 0;
-    const timeB = b.completedAt || b.abandonedAt || b.endedAt || b.startedAt || 0;
+    const timeA =
+      a.completedAt || a.abandonedAt || a.endedAt || a.startedAt || 0;
+    const timeB =
+      b.completedAt || b.abandonedAt || b.endedAt || b.startedAt || 0;
     return timeB - timeA;
   });
 
@@ -430,7 +521,9 @@ export function pruneHistoryRecords(historyRecords = [], maxDays = 90, maxRecord
 export function isDuplicateCompletion(historyRecords = [], runtimeId) {
   if (!Array.isArray(historyRecords) || !runtimeId) return false;
   return historyRecords.some(
-    (r) => r && (r.runtimeId === runtimeId || r.id === runtimeId) && r.status === FOCUS_STATES.FOCUS_COMPLETED
+    (r) =>
+      r &&
+      (r.runtimeId === runtimeId || r.id === runtimeId) &&
+      r.status === FOCUS_STATES.FOCUS_COMPLETED,
   );
 }
-

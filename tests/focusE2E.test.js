@@ -9,9 +9,8 @@ import assert from "node:assert/strict";
  */
 
 // Try importing real implementation if present, or use contract mock runner
-let focusSessionCore = null;
 try {
-  focusSessionCore = await import("../src/core/focusSession.js");
+  await import("../src/core/focusSession.js");
 } catch {
   // Core module planned in M1 / Slice 1
 }
@@ -128,7 +127,7 @@ function createE2EEnvironment(initialStorage = {}) {
       async createDocument() {},
     },
     notifications: {
-      async create(options) {
+      async create() {
         return `notif_${Date.now()}`;
       },
     },

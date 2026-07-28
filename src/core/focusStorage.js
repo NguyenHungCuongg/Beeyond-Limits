@@ -69,7 +69,7 @@ export async function clearActiveFocusSession(chromeStorageApi) {
 
 export async function getFocusTemplates(chromeStorageApi) {
   const storage = getStorage(chromeStorageApi);
-  const data = await storage.get(STORAGE_KEYS.TEMPLATES);
+  const data = await storage.get([STORAGE_KEYS.TEMPLATES]);
   const templates = data[STORAGE_KEYS.TEMPLATES];
   if (!Array.isArray(templates)) return DEFAULT_TEMPLATES;
   return templates.filter((t) => t && typeof t === "object" && t.id);
@@ -155,7 +155,7 @@ export async function deleteFocusTemplate(templateId, chromeStorageApi) {
 
 export async function getFocusHistory(chromeStorageApi) {
   const storage = getStorage(chromeStorageApi);
-  const data = await storage.get(STORAGE_KEYS.HISTORY);
+  const data = await storage.get([STORAGE_KEYS.HISTORY]);
   const history = data[STORAGE_KEYS.HISTORY];
   return Array.isArray(history) ? history : [];
 }
@@ -198,7 +198,7 @@ export async function appendFocusHistory(historyRecord, chromeStorageApi) {
 
 export async function getFocusPreferences(chromeStorageApi) {
   const storage = getStorage(chromeStorageApi);
-  const data = await storage.get(STORAGE_KEYS.PREFERENCES);
+  const data = await storage.get([STORAGE_KEYS.PREFERENCES]);
   const storedPrefs = data[STORAGE_KEYS.PREFERENCES];
 
   if (storedPrefs && typeof storedPrefs === "object" && !Array.isArray(storedPrefs)) {
@@ -230,6 +230,10 @@ export async function updateFocusPreferences(newPreferences, chromeStorageApi) {
         ...currentPrefs.ambientSound,
         ...(newPreferences?.ambientSound || {}),
       },
+      blocker: {
+        ...currentPrefs.blocker,
+        ...(newPreferences?.blocker || {}),
+      },
     };
 
     const normalizedConfig = normalizeFocusConfig(merged);
@@ -238,6 +242,7 @@ export async function updateFocusPreferences(newPreferences, chromeStorageApi) {
       focusDuration: normalizedConfig.focusDuration,
       breakDuration: normalizedConfig.breakDuration,
       blockerEnabled: normalizedConfig.blocker.enabled,
+      blocker: normalizedConfig.blocker,
       ambientSound: normalizedConfig.ambientSound,
     };
 
@@ -254,17 +259,23 @@ export async function initializeFocusStorage(chromeStorageApi) {
       STORAGE_KEYS.TEMPLATES,
       STORAGE_KEYS.HISTORY,
       STORAGE_KEYS.PREFERENCES,
+      "blockedUrls",
     ]);
 
     const updates = {};
+    const initialBlockedUrls = Array.isArray(data.blockedUrls) ? data.blockedUrls : [];
 
     if (data[STORAGE_KEYS.ACTIVE_SESSION] === undefined) {
       data[STORAGE_KEYS.ACTIVE_SESSION] = null;
     }
 
     if (!Array.isArray(data[STORAGE_KEYS.TEMPLATES])) {
-      updates[STORAGE_KEYS.TEMPLATES] = DEFAULT_TEMPLATES;
-      data[STORAGE_KEYS.TEMPLATES] = DEFAULT_TEMPLATES;
+      const templates = DEFAULT_TEMPLATES.map(t => ({
+        ...t,
+        blocker: { ...t.blocker, blockedUrls: initialBlockedUrls }
+      }));
+      updates[STORAGE_KEYS.TEMPLATES] = templates;
+      data[STORAGE_KEYS.TEMPLATES] = templates;
     }
 
     if (!Array.isArray(data[STORAGE_KEYS.HISTORY])) {
@@ -272,9 +283,49 @@ export async function initializeFocusStorage(chromeStorageApi) {
       data[STORAGE_KEYS.HISTORY] = [];
     }
 
+    if (Array.isArray(data[STORAGE_KEYS.TEMPLATES])) {
+      const templates = data[STORAGE_KEYS.TEMPLATES].map((template) => {
+        if (Array.isArray(template?.blocker?.blockedUrls)) {
+          return template;
+        }
+        return {
+          ...template,
+          blocker: {
+            enabled: template?.blocker?.enabled ?? true,
+            ...template?.blocker,
+            blockedUrls: initialBlockedUrls,
+          },
+        };
+      });
+      if (templates.some((template, index) => template !== data[STORAGE_KEYS.TEMPLATES][index])) {
+        updates[STORAGE_KEYS.TEMPLATES] = templates;
+        data[STORAGE_KEYS.TEMPLATES] = templates;
+      }
+    }
+
     if (!data[STORAGE_KEYS.PREFERENCES] || typeof data[STORAGE_KEYS.PREFERENCES] !== "object" || Array.isArray(data[STORAGE_KEYS.PREFERENCES])) {
-      updates[STORAGE_KEYS.PREFERENCES] = DEFAULT_FOCUS_SETTINGS;
-      data[STORAGE_KEYS.PREFERENCES] = DEFAULT_FOCUS_SETTINGS;
+      const prefs = {
+        ...DEFAULT_FOCUS_SETTINGS,
+        blocker: { ...DEFAULT_FOCUS_SETTINGS.blocker, blockedUrls: initialBlockedUrls }
+      };
+      updates[STORAGE_KEYS.PREFERENCES] = prefs;
+      data[STORAGE_KEYS.PREFERENCES] = prefs;
+    } else if (!Array.isArray(data[STORAGE_KEYS.PREFERENCES].blocker?.blockedUrls)) {
+      const existingPreferences = data[STORAGE_KEYS.PREFERENCES];
+      const prefs = {
+        ...existingPreferences,
+        blocker: {
+          ...DEFAULT_FOCUS_SETTINGS.blocker,
+          enabled:
+            existingPreferences.blocker?.enabled ??
+            existingPreferences.blockerEnabled ??
+            DEFAULT_FOCUS_SETTINGS.blocker.enabled,
+          ...existingPreferences.blocker,
+          blockedUrls: initialBlockedUrls,
+        },
+      };
+      updates[STORAGE_KEYS.PREFERENCES] = prefs;
+      data[STORAGE_KEYS.PREFERENCES] = prefs;
     }
 
     if (Object.keys(updates).length > 0) {

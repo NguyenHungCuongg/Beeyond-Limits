@@ -173,12 +173,26 @@ export function useFocusSession() {
         clientRef.current.updatePreferences(preferences),
       ),
     saveTemplate: (template) =>
-      runCommand("save-template", () => clientRef.current.saveTemplate(template)),
+      runCommand("save-template", () =>
+        clientRef.current.saveTemplate(template),
+      ),
     updateTemplate: (template) =>
-      runCommand("update-template", () => clientRef.current.updateTemplate(template)),
+      runCommand("update-template", () =>
+        clientRef.current.updateTemplate(template),
+      ),
     duplicateTemplate: (templateId) =>
-      runCommand("duplicate-template", () => clientRef.current.duplicateTemplate(templateId)),
+      runCommand("duplicate-template", () =>
+        clientRef.current.duplicateTemplate(templateId),
+      ),
     deleteTemplate: (templateId) =>
-      runCommand("delete-template", () => clientRef.current.deleteTemplate(templateId)),
+      runCommand("delete-template", () =>
+        clientRef.current.deleteTemplate(templateId),
+      ),
+    completeTask: (taskId) =>
+      runCommand("complete-task", () => clientRef.current.completeTask(taskId)),
+    finishSession: (runtimeId) =>
+      runCommand("finish-session", () =>
+        clientRef.current.skipBreak(runtimeId),
+      ),
   };
 }

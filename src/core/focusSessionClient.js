@@ -7,6 +7,7 @@ function extensionRuntimeError() {
 
 export function createFocusSessionClient(
   runtimeApi = globalThis.chrome?.runtime,
+  storageApi = globalThis.chrome?.storage,
 ) {
   async function send(type, payload = {}) {
     if (!runtimeApi || typeof runtimeApi.sendMessage !== "function") {
@@ -65,6 +66,27 @@ export function createFocusSessionClient(
     },
     deleteTemplate(templateId) {
       return send("FOCUS_SESSION_TEMPLATE_DELETE", { templateId });
+    },
+    async completeTask(taskId) {
+      if (!storageApi || !storageApi.local) {
+        throw new Error("Storage unavailable");
+      }
+      const { tasks = [] } = await storageApi.local.get(["tasks"]);
+      if (!Array.isArray(tasks)) {
+        return { success: true, updated: false };
+      }
+      let updated = false;
+      const nextTasks = tasks.map((task) => {
+        if (String(task?.id) === String(taskId) && !task.completed) {
+          updated = true;
+          return { ...task, completed: true };
+        }
+        return task;
+      });
+      if (updated) {
+        await storageApi.local.set({ tasks: nextTasks });
+      }
+      return { success: true, updated };
     },
   };
 }

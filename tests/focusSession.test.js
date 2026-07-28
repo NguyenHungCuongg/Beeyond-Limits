@@ -7,6 +7,7 @@ import {
   FOCUS_BOUNDS,
   DEFAULT_FOCUS_SETTINGS,
   DEFAULT_TEMPLATES,
+  AMBIENT_SOUND_IDS,
   normalizeFocusConfig,
   createFocusSession,
   pauseFocusSession,
@@ -43,6 +44,17 @@ test("FOCUS_PHASES contains focus and break, and is frozen", () => {
   assert.equal(Object.isFrozen(FOCUS_PHASES), true);
   assert.equal(FOCUS_PHASES.FOCUS, "focus");
   assert.equal(FOCUS_PHASES.BREAK, "break");
+});
+
+test("ambient sound IDs match the files exposed by the extension", () => {
+  assert.deepEqual(AMBIENT_SOUND_IDS, [
+    "bird",
+    "campfire",
+    "ocean_waves",
+    "rain",
+    "thunder",
+    "wind",
+  ]);
 });
 
 test("FOCUS_BOUNDS has accurate constraints and is frozen", () => {
@@ -108,7 +120,10 @@ test("normalizeFocusConfig preserves valid custom values", () => {
 test("normalizeFocusConfig clamps out-of-bounds durations", () => {
   assert.equal(normalizeFocusConfig({ focusDuration: 2 }).focusDuration, 5);
   assert.equal(normalizeFocusConfig({ focusDuration: 200 }).focusDuration, 120);
-  assert.equal(normalizeFocusConfig({ focusDuration: "invalid" }).focusDuration, 25);
+  assert.equal(
+    normalizeFocusConfig({ focusDuration: "invalid" }).focusDuration,
+    25,
+  );
 
   assert.equal(normalizeFocusConfig({ breakDuration: 0 }).breakDuration, 1);
   assert.equal(normalizeFocusConfig({ breakDuration: 60 }).breakDuration, 30);
@@ -121,21 +136,41 @@ test("normalizeFocusConfig truncates long goal text and categorizes type", () =>
   assert.equal(normalizedTextOnly.goal.text.length, 120);
   assert.equal(normalizedTextOnly.goal.type, "text");
 
-  const normalizedTask = normalizeFocusConfig({ goal: { text: "Task Goal", taskId: "task_12" } });
+  const normalizedTask = normalizeFocusConfig({
+    goal: { text: "Task Goal", taskId: "task_12" },
+  });
   assert.equal(normalizedTask.goal.type, "task");
   assert.equal(normalizedTask.goal.taskId, "task_12");
 });
 
 test("normalizeFocusConfig clamps ambient sound volume and handles missing soundId", () => {
-  const quiet = normalizeFocusConfig({ ambientSound: { enabled: true, soundId: "rain", volume: -20 } });
+  const quiet = normalizeFocusConfig({
+    ambientSound: { enabled: true, soundId: "rain", volume: -20 },
+  });
   assert.equal(quiet.ambientSound.volume, 0);
 
-  const loud = normalizeFocusConfig({ ambientSound: { enabled: true, soundId: "rain", volume: 150 } });
+  const loud = normalizeFocusConfig({
+    ambientSound: { enabled: true, soundId: "rain", volume: 150 },
+  });
   assert.equal(loud.ambientSound.volume, 100);
 
-  const noSoundId = normalizeFocusConfig({ ambientSound: { enabled: true, soundId: null } });
+  const noSoundId = normalizeFocusConfig({
+    ambientSound: { enabled: true, soundId: null },
+  });
   assert.equal(noSoundId.ambientSound.enabled, false);
   assert.equal(noSoundId.ambientSound.soundId, null);
+});
+
+test("normalizeFocusConfig disables unsupported ambient sound IDs", () => {
+  const normalized = normalizeFocusConfig({
+    ambientSound: { enabled: true, soundId: "coffee" },
+  });
+
+  assert.deepEqual(normalized.ambientSound, {
+    enabled: false,
+    soundId: null,
+    volume: 50,
+  });
 });
 
 // ==========================================
@@ -204,7 +239,10 @@ test("resumeFocusSession resumes paused focus session", () => {
 
 test("pause and resume work correctly for break sessions", () => {
   const now = 1000000;
-  const completed = completeFocusSession(createFocusSession({}, now), now + 1500000);
+  const completed = completeFocusSession(
+    createFocusSession({}, now),
+    now + 1500000,
+  );
   const breakSession = startBreakSession(completed, 5, now + 1500000); // 300s break
 
   const pausedBreak = pauseFocusSession(breakSession, now + 1600000); // 100s elapsed, 200s remaining
@@ -314,7 +352,10 @@ test("completeFocusSession is idempotent", () => {
 
 test("startBreakSession starts active break from focus completed", () => {
   const now = 1000000;
-  const session = createFocusSession({ focusDuration: 25, breakDuration: 5 }, now);
+  const session = createFocusSession(
+    { focusDuration: 25, breakDuration: 5 },
+    now,
+  );
   const completed = completeFocusSession(session, 2500000);
 
   const breakStartTime = 2505000;
@@ -370,11 +411,36 @@ test("abandonFocusSession cannot abandon already completed session", () => {
 
 test("aggregateDailyProgress calculates totals for specified date", () => {
   const history = [
-    { id: "h1", dateStr: "2026-07-27", status: FOCUS_STATES.FOCUS_COMPLETED, focusDurationMinutes: 25 },
-    { id: "h2", dateStr: "2026-07-27", status: FOCUS_STATES.FOCUS_COMPLETED, focusDurationMinutes: 50 },
-    { id: "h3", dateStr: "2026-07-27", status: FOCUS_STATES.ABANDONED, focusDurationMinutes: 25 },
-    { id: "h4", dateStr: "2026-07-27", status: FOCUS_STATES.BREAK_COMPLETED, focusDurationMinutes: 5 },
-    { id: "h5", dateStr: "2026-07-26", status: FOCUS_STATES.FOCUS_COMPLETED, focusDurationMinutes: 25 },
+    {
+      id: "h1",
+      dateStr: "2026-07-27",
+      status: FOCUS_STATES.FOCUS_COMPLETED,
+      focusDurationMinutes: 25,
+    },
+    {
+      id: "h2",
+      dateStr: "2026-07-27",
+      status: FOCUS_STATES.FOCUS_COMPLETED,
+      focusDurationMinutes: 50,
+    },
+    {
+      id: "h3",
+      dateStr: "2026-07-27",
+      status: FOCUS_STATES.ABANDONED,
+      focusDurationMinutes: 25,
+    },
+    {
+      id: "h4",
+      dateStr: "2026-07-27",
+      status: FOCUS_STATES.BREAK_COMPLETED,
+      focusDurationMinutes: 5,
+    },
+    {
+      id: "h5",
+      dateStr: "2026-07-26",
+      status: FOCUS_STATES.FOCUS_COMPLETED,
+      focusDurationMinutes: 25,
+    },
   ];
 
   const result = aggregateDailyProgress(history, "2026-07-27");
@@ -419,7 +485,10 @@ test("pruneHistoryRecords filters old records and truncates limit", () => {
 
   const pruned = pruneHistoryRecords(history, 90, 50, now);
   assert.equal(pruned.length, 50); // truncated to maxRecords = 50
-  assert.equal(pruned.every((r) => r.startedAt >= now - 90 * dayMs), true);
+  assert.equal(
+    pruned.every((r) => r.startedAt >= now - 90 * dayMs),
+    true,
+  );
 });
 
 test("isDuplicateCompletion identifies existing completed runtime IDs", () => {
@@ -453,7 +522,11 @@ test("Iteration 2: pruneHistoryRecords extracts timestamps from completedAt and 
   const history = [
     { id: "h1", completedAt: now - 1000, status: FOCUS_STATES.FOCUS_COMPLETED },
     { id: "h2", abandonedAt: now - 5000, status: FOCUS_STATES.ABANDONED },
-    { id: "h3", completedAt: now - 1000 * 24 * 60 * 60 * 100, status: FOCUS_STATES.FOCUS_COMPLETED }, // 100 days old
+    {
+      id: "h3",
+      completedAt: now - 1000 * 24 * 60 * 60 * 100,
+      status: FOCUS_STATES.FOCUS_COMPLETED,
+    }, // 100 days old
   ];
 
   const pruned = pruneHistoryRecords(history, 90, 50, now);
@@ -486,7 +559,11 @@ test("Iteration 2: aggregateDailyProgress and calculateStreakDays use local date
   const localTodayStr = `${year}-${month}-${day}`;
 
   const history = [
-    { dateStr: localTodayStr, status: FOCUS_STATES.FOCUS_COMPLETED, focusDurationMinutes: 25 },
+    {
+      dateStr: localTodayStr,
+      status: FOCUS_STATES.FOCUS_COMPLETED,
+      focusDurationMinutes: 25,
+    },
   ];
 
   const progress = aggregateDailyProgress(history);
@@ -509,11 +586,13 @@ test("Iteration 2: normalizeFocusConfig handles and trims string inputs for conf
 test("Iteration 2: isDuplicateCompletion checks both r.runtimeId and r.id", () => {
   const history = [
     { id: "session_by_id", status: FOCUS_STATES.FOCUS_COMPLETED },
-    { runtimeId: "session_by_runtime_id", status: FOCUS_STATES.FOCUS_COMPLETED },
+    {
+      runtimeId: "session_by_runtime_id",
+      status: FOCUS_STATES.FOCUS_COMPLETED,
+    },
   ];
 
   assert.equal(isDuplicateCompletion(history, "session_by_id"), true);
   assert.equal(isDuplicateCompletion(history, "session_by_runtime_id"), true);
   assert.equal(isDuplicateCompletion(history, "session_unknown"), false);
 });
-

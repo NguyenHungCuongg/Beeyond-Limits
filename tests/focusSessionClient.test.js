@@ -10,7 +10,28 @@ function createRuntime(responses = {}) {
       async sendMessage(message) {
         messages.push(message);
         const response = responses[message.type];
-        return typeof response === "function" ? response(message) : response ?? { success: true };
+        return typeof response === "function"
+          ? response(message)
+          : (response ?? { success: true });
+      },
+    },
+  };
+}
+
+function createStorage(initialData = {}) {
+  const data = { ...initialData };
+  return {
+    local: {
+      async get(keys) {
+        if (!keys) return { ...data };
+        const result = {};
+        for (const key of keys) {
+          if (key in data) result[key] = data[key];
+        }
+        return result;
+      },
+      async set(items) {
+        Object.assign(data, items);
       },
     },
   };
@@ -18,9 +39,17 @@ function createRuntime(responses = {}) {
 
 test("focus session client sends state and lifecycle commands", async () => {
   const runtime = createRuntime({
-    FOCUS_GET_STATE: { success: true, activeSession: null, templates: [], history: [] },
+    FOCUS_GET_STATE: {
+      success: true,
+      activeSession: null,
+      templates: [],
+      history: [],
+    },
     FOCUS_START_SESSION: { success: true, activeSession: { id: "runtime-1" } },
-    FOCUS_PAUSE_SESSION: { success: true, activeSession: { id: "runtime-1", status: "paused_focus" } },
+    FOCUS_PAUSE_SESSION: {
+      success: true,
+      activeSession: { id: "runtime-1", status: "paused_focus" },
+    },
   });
   const client = createFocusSessionClient(runtime.api);
 
@@ -51,4 +80,46 @@ test("focus session client fails clearly when the extension runtime is unavailab
   const client = createFocusSessionClient(null);
 
   await assert.rejects(client.getState(), /Extension runtime is unavailable/);
+});
+
+test("focus session client completes linked task in storage", async () => {
+  const runtime = createRuntime({});
+  const storage = createStorage({
+    tasks: [
+      { id: 1, text: "Task 1", completed: false },
+      { id: 2, text: "Task 2", completed: false },
+    ],
+  });
+  const client = createFocusSessionClient(runtime.api, storage);
+
+  const result = await client.completeTask(1);
+  assert.equal(result.success, true);
+  assert.equal(result.updated, true);
+
+  const { tasks } = await storage.local.get(["tasks"]);
+  assert.equal(tasks[0].completed, true);
+  assert.equal(tasks[1].completed, false);
+
+  // Idempotent test
+  const result2 = await client.completeTask(1);
+  assert.equal(result2.success, true);
+  assert.equal(result2.updated, false);
+});
+
+test("focus session client completes string-id tasks and tolerates malformed storage", async () => {
+  const runtime = createRuntime({});
+  const storage = createStorage({
+    tasks: [
+      { id: "task-1", text: "Task 1", completed: false },
+      { id: "task-2", text: "Task 2", completed: false },
+    ],
+  });
+  const client = createFocusSessionClient(runtime.api, storage);
+
+  const result = await client.completeTask("task-1");
+  assert.deepEqual(result, { success: true, updated: true });
+  assert.equal((await storage.local.get(["tasks"])).tasks[0].completed, true);
+
+  await storage.local.set({ tasks: { corrupted: true } });
+  await assert.doesNotReject(() => client.completeTask("task-2"));
 });

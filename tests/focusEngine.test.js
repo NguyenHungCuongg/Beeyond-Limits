@@ -28,6 +28,7 @@ function createMockChrome(initialStorage = {}) {
   const alarmListeners = [];
   const startupListeners = [];
   const installedListeners = [];
+  const dynamicRules = [];
 
   const chromeMock = {
     alarms: {
@@ -42,6 +43,18 @@ function createMockChrome(initialStorage = {}) {
       async clear(name) {
         alarmsCleared.push(name);
         return true;
+      },
+    },
+    declarativeNetRequest: {
+      async getDynamicRules() {
+        return [...dynamicRules];
+      },
+      async updateDynamicRules({ removeRuleIds = [], addRules = [] }) {
+        for (const ruleId of removeRuleIds) {
+          const index = dynamicRules.findIndex((rule) => rule.id === ruleId);
+          if (index >= 0) dynamicRules.splice(index, 1);
+        }
+        dynamicRules.push(...addRules);
       },
     },
     notifications: {
@@ -113,6 +126,7 @@ function createMockChrome(initialStorage = {}) {
     alarmListeners,
     startupListeners,
     installedListeners,
+    dynamicRules,
   };
 }
 
@@ -146,6 +160,44 @@ serialTest("SW Startup & Hydration: re-registers active alarm if phase ends in f
   assert.equal(mock.alarmsCreated.length, 1);
   assert.equal(mock.alarmsCreated[0].name, "focusSessionTimer");
   assert.equal(mock.alarmsCreated[0].alarmInfo.when, futureTime);
+
+  delete globalThis.chrome;
+});
+
+serialTest("SW Startup keeps the session blocklist after focus completion", async () => {
+  const initialSession = {
+    id: "session_focus_complete",
+    schemaVersion: 1,
+    phase: "focus",
+    status: "focus_completed",
+    startedAt: Date.now() - 1500000,
+    phaseStartedAt: Date.now() - 1500000,
+    phaseEndsAt: null,
+    durationSeconds: 1500,
+    remainingSeconds: 0,
+    completedAt: Date.now(),
+    snapshot: {
+      focusDuration: 25,
+      breakDuration: 5,
+      blocker: {
+        enabled: true,
+        blockedUrls: [{ id: "youtube", url: "youtube.com" }],
+      },
+    },
+  };
+  const mock = createMockChrome({
+    activeFocusSession: initialSession,
+    isBlocking: true,
+    blockedUrls: [{ id: "facebook", url: "facebook.com" }],
+  });
+  globalThis.chrome = mock.chromeMock;
+
+  const bg = await import(`../src/background.js?test_focus_complete=${Date.now()}`);
+  await bg.focusManager.ready;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(mock.dynamicRules.length, 1);
+  assert.deepEqual(mock.dynamicRules[0].condition.requestDomains, ["youtube.com"]);
 
   delete globalThis.chrome;
 });
@@ -213,10 +265,17 @@ serialTest("Message Handlers: handles FOCUS_GET_STATE, FOCUS_START_SESSION, FOCU
     focusDuration: 25,
     breakDuration: 5,
     goal: { type: "text", text: "Write unit tests" },
+    blocker: {
+      enabled: true,
+      blockedUrls: [{ id: "youtube", url: "youtube.com" }],
+    },
   });
   assert.equal(startRes.success, true);
   assert.ok(startRes.activeSession);
   assert.equal(startRes.activeSession.status, "active_focus");
+  assert.deepEqual(mock.dynamicRules[0].condition.requestDomains, [
+    "youtube.com",
+  ]);
   const runtimeId = startRes.activeSession.id;
 
   // 3. FOCUS_PAUSE_SESSION
@@ -285,6 +344,32 @@ serialTest("Message Handlers: handles FOCUS_GET_STATE, FOCUS_START_SESSION, FOCU
   assert.equal(prefRes.success, true);
   assert.equal(prefRes.preferences.focusDuration, 30);
   assert.equal(prefRes.preferences.breakDuration, 10);
+
+  const templateRes = await Promise.race([
+    dispatch({
+      type: "FOCUS_SESSION_TEMPLATE_UPDATE",
+      template: {
+        id: "template_quick_25",
+        name: "Pomodoro 25",
+        focusDuration: 25,
+        breakDuration: 5,
+        blocker: {
+          enabled: true,
+          blockedUrls: [{ id: "youtube", url: "youtube.com" }],
+        },
+      },
+    }),
+    new Promise((_, reject) =>
+      setTimeout(
+        () => reject(new Error("Template update did not receive a response")),
+        50,
+      ),
+    ),
+  ]);
+  assert.equal(templateRes.success, true);
+  assert.deepEqual(templateRes.template.blocker.blockedUrls.map(({ id, url }) => ({ id, url })), [
+    { id: "youtube", url: "youtube.com" },
+  ]);
 
   delete globalThis.chrome;
 });

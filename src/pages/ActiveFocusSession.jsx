@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { Ban, Home, Pause, Play } from "../components/Icons";
+import { useEffect, useState, useRef } from "react";
+import { Ban, Home, Pause, Play, Check } from "../components/Icons";
 import { FOCUS_PHASES, FOCUS_STATES } from "../core/focusSession.js";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 function getRemainingSeconds(session, now = Date.now()) {
   if (!session) return 0;
@@ -26,14 +27,30 @@ function formatTime(totalSeconds) {
   );
 }
 
-function ActiveFocusSession({ onNavigate, focusSession }) {
+function ActiveFocusSession({ onNavigate, onStartFocus, focusSession }) {
   const session = focusSession.activeSession;
   const [now, setNow] = useState(Date.now());
+  const [showConfirm, setShowConfirm] = useState(false);
+  const stopBtnRef = useRef(null);
 
   useEffect(() => {
     const intervalId = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(intervalId);
   }, []);
+
+  const isPaused =
+    session?.status === FOCUS_STATES.PAUSED_FOCUS ||
+    session?.status === FOCUS_STATES.PAUSED_BREAK;
+  const isBreak = session?.phase === FOCUS_PHASES.BREAK;
+  const isComplete =
+    session?.status === FOCUS_STATES.FOCUS_COMPLETED ||
+    session?.status === FOCUS_STATES.BREAK_COMPLETED;
+
+  useEffect(() => {
+    if (isComplete) {
+      onNavigate("focus-complete");
+    }
+  }, [isComplete, onNavigate]);
 
   if (!session) {
     return (
@@ -41,7 +58,7 @@ function ActiveFocusSession({ onNavigate, focusSession }) {
         <h1 className="font-display text-5xl uppercase">No active session</h1>
         <button
           type="button"
-          onClick={() => onNavigate("focus-setup")}
+          onClick={onStartFocus}
           className="mt-5 bg-mustard brutal-border brutal-shadow font-display text-xl uppercase py-3"
         >
           Start a session
@@ -50,14 +67,15 @@ function ActiveFocusSession({ onNavigate, focusSession }) {
     );
   }
 
+  if (isComplete) {
+    return (
+      <div className="bg-canvas min-h-screen text-ink p-5 flex items-center justify-center">
+        <p className="font-mono text-xl font-bold uppercase">Loading...</p>
+      </div>
+    );
+  }
+
   const remaining = getRemainingSeconds(session, now);
-  const isPaused =
-    session.status === FOCUS_STATES.PAUSED_FOCUS ||
-    session.status === FOCUS_STATES.PAUSED_BREAK;
-  const isBreak = session.phase === FOCUS_PHASES.BREAK;
-  const isComplete =
-    session.status === FOCUS_STATES.FOCUS_COMPLETED ||
-    session.status === FOCUS_STATES.BREAK_COMPLETED;
   const goal = session.goal?.text || "Focused work";
 
   async function togglePause() {
@@ -72,61 +90,53 @@ function ActiveFocusSession({ onNavigate, focusSession }) {
     }
   }
 
-  async function stopEarly() {
-    if (
-      !window.confirm(
-        "Stop this focus session? It will not count as completed.",
-      )
-    ) {
-      return;
-    }
+  async function handleStopEarly() {
     try {
       await focusSession.abandonSession(session.id);
       onNavigate("home");
     } catch {
-      // Error is rendered by the shared hook.
+      setShowConfirm(false); // keep on recoverable state
     }
   }
 
-  if (isComplete) {
-    return (
-      <div className="bg-canvas min-h-screen text-ink p-5 flex flex-col justify-center">
-        <p className="font-mono text-xs font-bold uppercase mb-2">
-          Focus complete
-        </p>
-        <h1 className="font-display text-5xl uppercase leading-none">{goal}</h1>
-        <button
-          type="button"
-          onClick={() => onNavigate("focus-complete")}
-          className="mt-6 bg-mustard brutal-border brutal-shadow font-display text-xl uppercase py-3"
-        >
-          Continue
-        </button>
-      </div>
-    );
+  async function handleSkipBreak() {
+    try {
+      await focusSession.skipBreak(session.id);
+      onNavigate("home");
+    } catch {
+      // Error handled by hook
+    }
   }
 
   return (
-    <div className="bg-canvas min-h-screen text-ink p-5">
+    <div className="bg-canvas min-h-screen text-ink p-5 pb-20">
       <div className="max-w-md mx-auto">
         <div className="flex items-center justify-between mb-5">
-          <p className="font-mono text-xs font-bold uppercase">
-            {isBreak ? "Break" : "Focus Session"}
-          </p>
-          <span className="font-mono text-xs font-bold uppercase" role="status">
+          <p className="font-mono text-xs font-bold uppercase flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full ${isPaused ? "bg-mustard" : isBreak ? "bg-sapphire" : "bg-emerald"}`}
+            ></span>
+            {isBreak ? "Break" : "Focus Session"} •{" "}
             {isPaused ? "Paused" : "Active"}
-          </span>
+          </p>
+          <button
+            type="button"
+            onClick={() => onNavigate("home")}
+            className="font-mono text-xs font-bold uppercase flex items-center gap-1 hover:underline"
+          >
+            <Home size={14} /> Home
+          </button>
         </div>
 
-        <h1 className="font-display text-4xl uppercase leading-none mb-6 break-words">
-          {goal}
+        <h1 className="font-display text-4xl uppercase leading-none mb-8 break-words line-clamp-3">
+          {isBreak ? "Take a break" : goal}
         </h1>
 
-        <div className="bg-paper brutal-border brutal-shadow w-full aspect-square max-w-xs mx-auto flex flex-col items-center justify-center">
+        <div className="bg-paper brutal-border brutal-shadow w-full aspect-square max-w-xs mx-auto flex flex-col items-center justify-center mb-8">
           <div
             role="timer"
             aria-label={formatTime(remaining) + " remaining"}
-            className="font-display text-7xl tabular-nums"
+            className="font-display text-7xl tabular-nums tracking-tighter"
           >
             {formatTime(remaining)}
           </div>
@@ -135,23 +145,35 @@ function ActiveFocusSession({ onNavigate, focusSession }) {
           </p>
         </div>
 
-        <div className="flex gap-2 mt-6 mb-5">
-          {session.blocker?.enabled && (
-            <span className="flex-1 bg-emerald text-paper brutal-border-light p-2 font-mono text-[11px] font-bold uppercase text-center">
-              Blocker {isPaused ? "still blocking" : "on"}
-            </span>
-          )}
-          {session.ambientSound?.enabled && (
-            <span className="flex-1 bg-sapphire text-paper brutal-border-light p-2 font-mono text-[11px] font-bold uppercase text-center">
-              Sound {isPaused ? "paused" : "on"}
-            </span>
-          )}
+        <div className="flex justify-between items-center mb-6 font-mono text-xs font-bold uppercase">
+          <div>
+            {!isBreak && session.blocker?.enabled ? (
+              <span className="flex items-center gap-2">
+                <Check size={14} className="text-emerald" />
+                {isPaused ? "Still blocking" : "Blocking sites"}
+              </span>
+            ) : !isBreak ? (
+              <span className="text-ink/50">Blocker off</span>
+            ) : (
+              <span className="text-ink/50">Blocker off for break</span>
+            )}
+          </div>
+          <div>
+            {!isBreak && session.ambientSound?.enabled ? (
+              <span className="flex items-center gap-2">
+                <Check size={14} className="text-emerald" />
+                {isPaused ? "Sound paused" : "Sound on"}
+              </span>
+            ) : (
+              <span className="text-ink/50">Sound off</span>
+            )}
+          </div>
         </div>
 
         {focusSession.error && (
           <div
             role="alert"
-            className="brutal-border bg-crimson text-paper p-3 font-mono text-xs mb-4"
+            className="brutal-border bg-crimson text-paper p-3 font-mono text-xs mb-6"
           >
             {focusSession.error}
           </div>
@@ -161,30 +183,49 @@ function ActiveFocusSession({ onNavigate, focusSession }) {
           type="button"
           disabled={focusSession.isBusy}
           onClick={togglePause}
-          className="w-full bg-mustard brutal-border brutal-shadow font-display text-2xl uppercase py-3 flex items-center justify-center gap-2 disabled:opacity-50"
+          className={`w-full brutal-border brutal-shadow font-display text-2xl uppercase py-4 flex items-center justify-center gap-2 mb-4 transition-colors disabled:opacity-50 ${
+            isPaused
+              ? "bg-emerald text-paper hover:bg-ink"
+              : "bg-mustard text-ink hover:bg-ink hover:text-mustard"
+          }`}
         >
           {isPaused ? <Play size={22} /> : <Pause size={22} />}
-          {isPaused ? "Resume Focus" : "Pause"}
+          {isPaused ? "Resume" : "Pause"}
         </button>
 
-        <div className="grid grid-cols-2 gap-3 mt-3">
+        {!isBreak ? (
           <button
+            ref={stopBtnRef}
             type="button"
-            onClick={stopEarly}
+            onClick={() => setShowConfirm(true)}
             disabled={focusSession.isBusy}
-            className="bg-crimson text-paper brutal-border-light font-mono font-bold uppercase py-3 flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full bg-paper text-crimson brutal-border-light font-mono font-bold uppercase py-3 flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-crimson hover:text-paper transition-colors"
           >
             <Ban size={15} /> Stop Early
           </button>
+        ) : (
           <button
             type="button"
-            onClick={() => onNavigate("home")}
-            className="bg-paper brutal-border brutal-shadow-sm font-mono font-bold uppercase py-3 flex items-center justify-center gap-2"
+            onClick={handleSkipBreak}
+            disabled={focusSession.isBusy}
+            className="w-full bg-paper text-ink brutal-border-light font-mono font-bold uppercase py-3 flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-canvas transition-colors"
           >
-            <Home size={15} /> Home
+            Skip Break
           </button>
-        </div>
+        )}
       </div>
+
+      {showConfirm && (
+        <ConfirmDialog
+          title="Stop Session?"
+          message="This session will be recorded as abandoned and will not count towards your completed progress."
+          confirmText="Stop Session"
+          cancelText="Keep Focusing"
+          onConfirm={handleStopEarly}
+          onCancel={() => setShowConfirm(false)}
+          focusTriggerRef={stopBtnRef}
+        />
+      )}
     </div>
   );
 }

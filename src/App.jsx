@@ -20,18 +20,18 @@ function App() {
     setCurrentPage(page);
   };
 
-  const renderPage = () => {
-    const openSetup = (template = null) => {
-      setSelectedTemplate(template);
-      setCurrentPage("focus-setup");
-    };
+  const openSetup = (template = null) => {
+    setSelectedTemplate(template);
+    setCurrentPage("focus-setup");
+  };
 
+  const renderPage = () => {
     switch (currentPage) {
       case "home":
         return (
           <Home
             onNavigate={navigateTo}
-            onStartFocus={() => openSetup()}
+            onStartFocus={openSetup}
             focusSession={focusSession}
           />
         );
@@ -47,6 +47,7 @@ function App() {
         return (
           <ActiveFocusSession
             onNavigate={navigateTo}
+            onStartFocus={() => openSetup()}
             focusSession={focusSession}
           />
         );
@@ -54,6 +55,7 @@ function App() {
         return (
           <FocusSessionComplete
             onNavigate={navigateTo}
+            onStartFocus={() => openSetup()}
             focusSession={focusSession}
           />
         );
@@ -70,7 +72,7 @@ function App() {
       case "tasklist":
         return <TaskList onNavigate={navigateTo} />;
       case "websiteblocker":
-        return <WebsiteBlocker onNavigate={navigateTo} />;
+        return <WebsiteBlocker onNavigate={navigateTo} focusSession={focusSession} />;
       case "ambientsounds":
         return <AmbientSounds onNavigate={navigateTo} />;
       default:
