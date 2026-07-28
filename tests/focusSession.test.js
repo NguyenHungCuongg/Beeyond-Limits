@@ -18,6 +18,7 @@ import {
   completeFocusSession,
   abandonFocusSession,
   startBreakSession,
+  startNextFocusCycle,
   aggregateDailyProgress,
   calculateStreakDays,
   pruneHistoryRecords,
@@ -418,6 +419,47 @@ test("startBreakSession allows custom break duration override and clamps it", ()
 test("startBreakSession ignores invalid base session state", () => {
   const activeFocus = createFocusSession();
   assert.deepEqual(startBreakSession(activeFocus), activeFocus);
+});
+
+test("startNextFocusCycle reuses the snapshot after a completed break", () => {
+  const initial = createFocusSession(
+    {
+      focusDuration: 50,
+      breakDuration: 10,
+      blocker: { enabled: true, blockedUrls: ["youtube.com"] },
+      ambientSound: { enabled: true, soundId: "rain", volume: 65 },
+    },
+    1000000,
+  );
+  const completedFocus = completeFocusSession(initial, 4000000);
+  const activeBreak = startBreakSession(completedFocus, null, 4000000);
+  const completedBreak = completeFocusSession(activeBreak, 4600000);
+
+  const nextFocus = startNextFocusCycle(completedBreak, 5000000);
+
+  assert.equal(nextFocus.id, initial.id);
+  assert.equal(nextFocus.cycleNumber, 2);
+  assert.equal(nextFocus.phase, FOCUS_PHASES.FOCUS);
+  assert.equal(nextFocus.status, FOCUS_STATES.ACTIVE_FOCUS);
+  assert.equal(nextFocus.durationSeconds, 3000);
+  assert.equal(nextFocus.remainingSeconds, 3000);
+  assert.equal(nextFocus.phaseStartedAt, 5000000);
+  assert.equal(nextFocus.phaseEndsAt, 8000000);
+  assert.equal(nextFocus.completedAt, null);
+  assert.deepEqual(nextFocus.snapshot, initial.snapshot);
+});
+
+test("startNextFocusCycle ignores sessions whose break is not completed", () => {
+  const activeFocus = createFocusSession({}, 1000000);
+  const completedFocus = completeFocusSession(activeFocus, 2500000);
+  const activeBreak = startBreakSession(completedFocus, null, 2500000);
+
+  assert.deepEqual(startNextFocusCycle(activeFocus, 3000000), activeFocus);
+  assert.deepEqual(
+    startNextFocusCycle(completedFocus, 3000000),
+    completedFocus,
+  );
+  assert.deepEqual(startNextFocusCycle(activeBreak, 3000000), activeBreak);
 });
 
 // ==========================================

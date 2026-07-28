@@ -19,6 +19,7 @@ import {
   completeFocusSession,
   abandonFocusSession,
   startBreakSession,
+  startNextFocusCycle,
   calculateRemainingSeconds,
   calculateProgressPercentage,
   FOCUS_STATES,
@@ -53,6 +54,13 @@ const DEFAULT_AMBIENT_SETTINGS = Object.freeze({
 
 function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function getFocusCycleRecordId(session) {
+  const cycleNumber = Math.max(1, session?.cycleNumber || 1);
+  return cycleNumber === 1
+    ? session.id
+    : `${session.id}:cycle:${cycleNumber}`;
 }
 
 function normalizeAmbientSettings(settings = {}) {
@@ -700,19 +708,21 @@ export class FocusSessionManager {
     const updated = abandonFocusSession(session, reason, now);
 
     await this.chromeApi.alarms.clear(FOCUS_ALARM);
+    const cycleRecordId = getFocusCycleRecordId(updated);
 
     const historyRecord = {
-      id: updated.id,
-      runtimeId: updated.id,
+      id: cycleRecordId,
+      runtimeId: cycleRecordId,
+      cycleNumber: Math.max(1, updated.cycleNumber || 1),
       status: FOCUS_STATES.ABANDONED,
       focusDurationMinutes:
         updated.snapshot?.focusDuration ||
         Math.round((updated.durationSeconds || 0) / 60),
       actualFocusSeconds: Math.max(
         0,
-        Math.round((now - updated.startedAt) / 1000),
+        Math.round((now - (updated.phaseStartedAt || updated.startedAt)) / 1000),
       ),
-      startedAt: updated.startedAt,
+      startedAt: updated.phaseStartedAt || updated.startedAt,
       abandonedAt: updated.abandonedAt || now,
       abandonReason: reason,
       goal: updated.goal,
@@ -763,6 +773,47 @@ export class FocusSessionManager {
 
     this.broadcastStateUpdate(breakSession);
     return { success: true, activeSession: breakSession };
+  }
+
+  async startNextCycle(payload = {}) {
+    await this.ready;
+    const session = await getActiveFocusSession(this.chromeApi);
+    if (!session) {
+      return { success: false, error: "No completed break found" };
+    }
+    if (payload.runtimeId && session.id !== payload.runtimeId) {
+      return { success: false, error: "Session runtime ID mismatch" };
+    }
+    if (session.status !== FOCUS_STATES.BREAK_COMPLETED) {
+      return {
+        success: false,
+        error: "Break must be completed before continuing focus",
+      };
+    }
+
+    await this.stopAlarm();
+    const nextCycle = startNextFocusCycle(session, Date.now());
+
+    try {
+      await this.applySessionBlocker(
+        nextCycle.snapshot?.blocker?.enabled,
+        nextCycle.snapshot?.blocker?.blockedUrls ?? [],
+      );
+      await this.stopSessionAmbient();
+      await this.startSessionAmbient(nextCycle.snapshot?.ambientSound);
+      await this.chromeApi.alarms.create(FOCUS_ALARM, {
+        when: nextCycle.phaseEndsAt,
+      });
+      await setActiveFocusSession(nextCycle, this.chromeApi);
+
+      this.broadcastStateUpdate(nextCycle);
+      return { success: true, activeSession: nextCycle };
+    } catch (error) {
+      await this.chromeApi.alarms.clear(FOCUS_ALARM).catch(() => {});
+      await this.applySessionBlocker(false, []).catch(() => {});
+      await this.stopSessionAmbient().catch(() => {});
+      throw error;
+    }
   }
 
   async skipBreak(payload = {}) {
@@ -821,15 +872,18 @@ export class FocusSessionManager {
     await this.stopSessionAmbient();
 
     if (session.phase === FOCUS_PHASES.FOCUS) {
+      const cycleRecordId = getFocusCycleRecordId(completedSession);
       const historyRecord = {
-        id: completedSession.id,
-        runtimeId: completedSession.id,
+        id: cycleRecordId,
+        runtimeId: cycleRecordId,
+        cycleNumber: Math.max(1, completedSession.cycleNumber || 1),
         status: FOCUS_STATES.FOCUS_COMPLETED,
         focusDurationMinutes: completedSession.snapshot?.focusDuration || 25,
         actualFocusSeconds:
           completedSession.durationSeconds ||
           (completedSession.snapshot?.focusDuration || 25) * 60,
-        startedAt: completedSession.startedAt,
+        startedAt:
+          completedSession.phaseStartedAt || completedSession.startedAt,
         completedAt: completedSession.completedAt || now,
         goal: completedSession.goal,
         templateId: completedSession.templateId,
@@ -1110,6 +1164,11 @@ chromeApi.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return respond(
         sendResponse,
         focusOperationQueue.run(() => focusManager.startBreak(message)),
+      );
+    case "FOCUS_START_NEXT_CYCLE":
+      return respond(
+        sendResponse,
+        focusOperationQueue.run(() => focusManager.startNextCycle(message)),
       );
     case "FOCUS_SKIP_BREAK":
       return respond(

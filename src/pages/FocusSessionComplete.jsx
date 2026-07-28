@@ -1,11 +1,7 @@
 import React, { useState } from "react";
-import { Coffee, Check, Save } from "../components/Icons";
+import { Coffee, Check, Save, Play } from "../components/Icons";
 
-export default function FocusSessionComplete({
-  onNavigate,
-  onStartFocus,
-  focusSession,
-}) {
+export default function FocusSessionComplete({ onNavigate, focusSession }) {
   const session = focusSession.activeSession;
 
   const [taskMarked, setTaskMarked] = useState(false);
@@ -56,6 +52,15 @@ export default function FocusSessionComplete({
       onNavigate("focus-active");
     } catch {
       // Error is handled by hook
+    }
+  }
+
+  async function handleContinueFocus() {
+    try {
+      await focusSession.startNextCycle(session.id);
+      onNavigate("focus-active");
+    } catch {
+      // Error is handled by the shared hook.
     }
   }
 
@@ -176,17 +181,10 @@ export default function FocusSessionComplete({
             <button
               type="button"
               disabled={focusSession.isBusy}
-              onClick={async () => {
-                try {
-                  await focusSession.finishSession(session.id);
-                  onStartFocus();
-                } catch {
-                  // Error is handled by the shared hook.
-                }
-              }}
+              onClick={handleContinueFocus}
               className="w-full bg-mustard text-ink brutal-border brutal-shadow font-display text-2xl uppercase py-4 flex items-center justify-center gap-2 hover:bg-ink hover:text-mustard transition-colors disabled:opacity-50"
             >
-              Start New Focus
+              <Play size={22} /> Continue Focus
             </button>
           )}
 

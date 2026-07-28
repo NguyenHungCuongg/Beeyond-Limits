@@ -82,6 +82,23 @@ test("focus session client previews the selected ambient sound at its configured
   ]);
 });
 
+test("focus session client requests the next work cycle without reopening setup", async () => {
+  const runtime = createRuntime({
+    FOCUS_START_NEXT_CYCLE: {
+      success: true,
+      activeSession: { id: "runtime-1", status: "active_focus" },
+    },
+  });
+  const client = createFocusSessionClient(runtime.api);
+
+  const response = await client.startNextCycle("runtime-1");
+
+  assert.equal(response.activeSession.status, "active_focus");
+  assert.deepEqual(runtime.messages, [
+    { type: "FOCUS_START_NEXT_CYCLE", runtimeId: "runtime-1" },
+  ]);
+});
+
 test("focus session client rejects unsuccessful background responses", async () => {
   const runtime = createRuntime({
     FOCUS_GET_STATE: { success: false, error: "Storage unavailable" },

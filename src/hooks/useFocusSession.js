@@ -166,6 +166,10 @@ export function useFocusSession() {
       runCommand("break", () =>
         clientRef.current.startBreak(runtimeId, durationMinutes),
       ),
+    startNextCycle: (runtimeId) =>
+      runCommand("next-cycle", () =>
+        clientRef.current.startNextCycle(runtimeId),
+      ),
     skipBreak: (runtimeId) =>
       runCommand("skip-break", () => clientRef.current.skipBreak(runtimeId)),
     updatePreferences: (preferences) =>

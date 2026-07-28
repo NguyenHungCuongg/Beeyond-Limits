@@ -629,3 +629,52 @@ serialTest(
     delete globalThis.chrome;
   },
 );
+
+serialTest(
+  "Focus Session repeats work after break and records every work cycle",
+  async () => {
+    const mock = createMockChrome();
+    globalThis.chrome = mock.chromeMock;
+    const bg = await import(
+      `../src/background.js?test_continuous_cycles=${Date.now()}`
+    );
+    await bg.focusManager.ready;
+
+    const started = await bg.focusManager.startSession({
+      config: {
+        focusDuration: 5,
+        breakDuration: 1,
+        blocker: {
+          enabled: true,
+          blockedUrls: [{ id: "youtube", url: "youtube.com" }],
+        },
+        ambientSound: { enabled: false },
+      },
+    });
+    const runtimeId = started.activeSession.id;
+
+    await bg.focusManager.completeCurrentPhase();
+    await bg.focusManager.startBreak({ runtimeId });
+    await bg.focusManager.completeCurrentPhase();
+
+    const nextCycle = await bg.focusManager.startNextCycle({ runtimeId });
+
+    assert.equal(nextCycle.success, true);
+    assert.equal(nextCycle.activeSession.id, runtimeId);
+    assert.equal(nextCycle.activeSession.cycleNumber, 2);
+    assert.equal(nextCycle.activeSession.status, "active_focus");
+    assert.deepEqual(mock.dynamicRules[0].condition.requestDomains, [
+      "youtube.com",
+    ]);
+
+    await bg.focusManager.completeCurrentPhase();
+
+    const history = mock.storageState.focusSessionHistory;
+    assert.equal(history.length, 2);
+    assert.equal(new Set(history.map((record) => record.runtimeId)).size, 2);
+    const cycleNumbers = history.map((record) => record.cycleNumber).sort();
+    assert.deepEqual(cycleNumbers, [1, 2]);
+
+    delete globalThis.chrome;
+  },
+);

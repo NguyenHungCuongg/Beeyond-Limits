@@ -212,6 +212,7 @@ export function createFocusSession(config = {}, nowTimestamp = Date.now()) {
     templateId: config.templateId || null,
     snapshot: JSON.parse(JSON.stringify(normalized)),
     goal: normalized.goal,
+    cycleNumber: 1,
     phase: FOCUS_PHASES.FOCUS,
     status: FOCUS_STATES.ACTIVE_FOCUS,
     startedAt: nowTimestamp,
@@ -408,6 +409,39 @@ export function startBreakSession(
     remainingSeconds: durationSeconds,
     phaseStartedAt: nowTimestamp,
     phaseEndsAt: nowTimestamp + durationSeconds * 1000,
+  };
+}
+
+export function startNextFocusCycle(
+  session,
+  nowTimestamp = Date.now(),
+) {
+  if (
+    !session ||
+    typeof session !== "object" ||
+    session.status !== FOCUS_STATES.BREAK_COMPLETED
+  ) {
+    return session;
+  }
+
+  const focusMinutes = clamp(
+    session.snapshot?.focusDuration,
+    FOCUS_BOUNDS.MIN_FOCUS_MINUTES,
+    FOCUS_BOUNDS.MAX_FOCUS_MINUTES,
+    FOCUS_BOUNDS.DEFAULT_FOCUS_MINUTES,
+  );
+  const durationSeconds = focusMinutes * 60;
+
+  return {
+    ...session,
+    cycleNumber: Math.max(1, session.cycleNumber || 1) + 1,
+    phase: FOCUS_PHASES.FOCUS,
+    status: FOCUS_STATES.ACTIVE_FOCUS,
+    durationSeconds,
+    remainingSeconds: durationSeconds,
+    phaseStartedAt: nowTimestamp,
+    phaseEndsAt: nowTimestamp + durationSeconds * 1000,
+    completedAt: null,
   };
 }
 

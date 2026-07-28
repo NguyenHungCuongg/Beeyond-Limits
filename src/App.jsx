@@ -55,7 +55,6 @@ function App() {
         return (
           <FocusSessionComplete
             onNavigate={navigateTo}
-            onStartFocus={() => openSetup()}
             focusSession={focusSession}
           />
         );

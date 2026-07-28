@@ -46,6 +46,12 @@ export function createFocusSessionClient(
         ...(durationMinutes !== undefined ? { durationMinutes } : {}),
       });
     },
+    startNextCycle(runtimeId) {
+      return send(
+        "FOCUS_START_NEXT_CYCLE",
+        runtimeId ? { runtimeId } : {},
+      );
+    },
     skipBreak(runtimeId) {
       return send("FOCUS_SKIP_BREAK", runtimeId ? { runtimeId } : {});
     },
