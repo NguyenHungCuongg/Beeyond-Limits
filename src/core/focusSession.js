@@ -57,23 +57,7 @@ export const DEFAULT_FOCUS_SETTINGS = Object.freeze({
   }),
 });
 
-export const DEFAULT_TEMPLATES = Object.freeze([
-  Object.freeze({
-    id: "template_quick_25",
-    name: "Pomodoro 25",
-    focusDuration: 25,
-    breakDuration: 5,
-    goal: Object.freeze({ type: "text", text: "", taskId: null }),
-    blocker: Object.freeze({ enabled: true, blockedUrls: [] }),
-    ambientSound: Object.freeze({
-      enabled: false,
-      soundId: null,
-      volume: 50,
-      sounds: Object.freeze({}),
-    }),
-    isDefault: true,
-  }),
-]);
+export const DEFAULT_TEMPLATES = Object.freeze([]);
 
 function clamp(value, min, max, fallback) {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
@@ -412,10 +396,7 @@ export function startBreakSession(
   };
 }
 
-export function startNextFocusCycle(
-  session,
-  nowTimestamp = Date.now(),
-) {
+export function startNextFocusCycle(session, nowTimestamp = Date.now()) {
   if (
     !session ||
     typeof session !== "object" ||

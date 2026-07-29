@@ -1,155 +1,222 @@
-# 🐝 Beeyond Limits - Chrome Extension
+﻿# 🐝 Beeyond Limits
 
-**Tăng cường năng suất với công cụ quản lý thời gian và tập trung toàn diện**
+<pre align="center" style="background: transparent; border: none; padding: 0;">
+ ███████████                                                       █████
+▒▒███▒▒▒▒▒███                                                     ▒▒███ 
+ ▒███    ▒███  ██████   ██████  █████ ████  ██████  ████████    ███████ 
+ ▒██████████  ███▒▒███ ███▒▒███▒▒███ ▒███  ███▒▒███▒▒███▒▒███  ███▒▒███ 
+ ▒███▒▒▒▒▒███▒███████ ▒███████  ▒███ ▒███ ▒███ ▒███ ▒███ ▒███ ▒███ ▒███ 
+ ▒███    ▒███▒███▒▒▒  ▒███▒▒▒   ▒███ ▒███ ▒███ ▒███ ▒███ ▒███ ▒███ ▒███ 
+ ███████████ ▒▒██████ ▒▒██████  ▒▒███████ ▒▒██████  ████ █████▒▒████████
+▒▒▒▒▒▒▒▒▒▒▒   ▒▒▒▒▒▒   ▒▒▒▒▒▒    ▒▒▒▒▒███  ▒▒▒▒▒▒  ▒▒▒▒ ▒▒▒▒▒  ▒▒▒▒▒▒▒▒ 
+                                 ███ ▒███                               
+                                ▒▒██████                                
+                                 ▒▒▒▒▒▒                                 
+ █████        ███                   ███   █████           
+▒▒███        ▒▒▒                   ▒▒▒   ▒▒███            
+ ▒███        ████  █████████████   ████  ███████    █████ 
+ ▒███       ▒▒███ ▒▒███▒▒███▒▒███ ▒▒███ ▒▒▒███▒    ███▒▒  
+ ▒███        ▒███  ▒███ ▒███ ▒███  ▒███   ▒███    ▒▒█████ 
+ ▒███      █ ▒███  ▒███ ▒███ ▒███  ▒███   ▒███ ███ ▒▒▒▒███
+ ███████████ █████ █████▒███ █████ █████  ▒▒█████  ██████ 
+▒▒▒▒▒▒▒▒▒▒▒ ▒▒▒▒▒ ▒▒▒▒▒ ▒▒▒ ▒▒▒▒▒ ▒▒▒▒▒    ▒▒▒▒▒  ▒▒▒▒▒▒  
+                                                          
+                                                          
+                                                                                                                                                      
+</pre>
+<div align="center">
+  <p><strong>Find your flow, own your time.</strong></p>
+  <p>A session-first Chrome extension that turns a timer, task list, website blocker, and ambient sound mixer into one focused workflow.</p>
+  <p>
+    <a href="#-why-beeyond-limits">Why Beeyond Limits</a> ·
+    <a href="#-features">Features</a> ·
+    <a href="#-quick-start">Quick start</a> ·
+    <a href="#-architecture">Architecture</a> ·
+    <a href="#-contributing">Contributing</a>
+  </p>
+  <p>
+    <img alt="Chrome Manifest V3" src="https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4?logo=googlechrome&logoColor=white">
+    <img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111827">
+    <img alt="Vite" src="https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white">
+    <img alt="Local first" src="https://img.shields.io/badge/Storage-local--first-16A34A">
+  </p>
+</div>
 
-Beeyond Limits là một Chrome Extension được thiết kế để giúp bạn vượt qua sự phân tâm và đẩy khả năng tập trung lên tầm cao mới. Lấy cảm hứng từ loài ong(Bee) cần cù, đã đến lúc bay vượt qua sự trì hoãn và đạt được tiềm năng thực sự của bạn.
+<!-- Replace this placeholder with your hero image or product mockup. -->
+<!-- <p align="center">
+  <img src="docs/images/hero.png" alt="Beeyond Limits product preview" width="760">
+</p> -->
 
-![Beeyond Limits Logo](./public/images/beeyond-limits-logo.png)
+## ✨ Why Beeyond Limits
 
----
+Most productivity tools expose useful features as disconnected utilities. Beeyond Limits makes the **Focus Session** the main unit of progress: configure the conditions you need, start one session, and let the extension keep the workflow together.
 
-## **Tính Năng Chính**
+It is designed for students, office workers, and freelancers who want a lightweight personal study/work companion without creating an account or depending on a server.
 
-- 🍅 **Pomodoro Timer** - Quản lý thời gian tập trung với chu kỳ làm việc/nghỉ ngơi tùy chỉnh
-- 🚫 **Chặn Website** - Chặn các trang web gây phân tâm trong thời gian tập trung
-- 📝 **Quản Lý Công Việc** - Tạo, sắp xếp và theo dõi danh sách việc cần làm
-- 🎵 **Âm Thanh Tự Nhiên** - Âm thanh thiên nhiên giúp tăng cường tập trung (Mưa, Sóng biển, Chim hót, v.v.)
-- 💭 **Quotes Hàng Ngày** - Những câu nói truyền cảm hứng mỗi ngày
-- 🔔 **Thông Báo Thông Minh** - Cảnh báo desktop khi chuyển đổi giữa các phiên làm việc
-- 📊 **Theo Dõi Tiến Độ** - Giám sát quá trình nâng cao năng suất của bạn
+### Product principles
 
----
+- **Session-first:** a timer, tasks, sound mix, and distraction rules belong to the same intention.
+- **Local-first:** session templates, active state, preferences, and history are persisted in Chrome storage.
+- **Low friction:** reopen the extension and return directly to an active session or its alarm screen.
+- **One clear measure:** the product is oriented around completed focus sessions, not endless configuration.
 
-## **Công Nghệ Sử Dụng**
+## 🚀 Features
 
-### **Frontend Framework**
+### Focus Session
 
-- **React 19.1.0** - Thư viện JavaScript để xây dựng giao diện người dùng
-- **Vite 5.4.19** - Build tool nhanh và hiện đại
-- **Tailwind CSS 4.1.11** - Framework CSS utility-first cho styling
+- Configure focus and break durations.
+- Attach tasks to the session and mark progress while working.
+- Build a multi-track ambient mix with independent volume controls and preview buttons.
+- Configure website blocking per session, independently from the standalone blocker tool.
+- Run the Work → Break → Work loop continuously until you stop the session.
+- Resume the active timer when reopening the extension popup.
+- Complete, skip, or abandon a session with an explicit end state.
 
-### **Chrome Extension APIs**
+### Quick tools
 
-- **Manifest V3** - Phiên bản manifest mới nhất cho Chrome Extension
-- **Service Worker** - Background script để xử lý logic chạy ngầm
-- **Chrome Storage API** - Lưu trữ dữ liệu người dùng
-- **Chrome Tabs API** - Quản lý và tương tác với các tab
-- **Chrome Notifications API** - Hiển thị thông báo hệ thống
-- **Offscreen Documents** - Phát âm thanh ambient trong background
+- **Pomodoro:** a standalone timer with configurable work/break cycles and testable audio alarms.
+- **Todo List:** a lightweight task list for planning and tracking work.
+- **Website Blocker:** a separate quick tool for general browsing protection.
+- **Ambient Sounds:** an independent sound mixer for use outside a Focus Session.
 
----
+Quick tools remain useful on their own. While a Focus Session is running, the Pomodoro quick tool is locked to prevent two competing timers; Todo List and ambient sound controls remain available where appropriate.
 
-## 🚀 **Hướng Dẫn Cài Đặt**
+### Alarm and extension UX
 
-### **📋 Yêu Cầu Hệ Thống**
+- Phase-completion alarms loop until muted.
+- Test Audio plays once and never loops.
+- A dedicated alarm popup appears when a Focus Session reaches a phase boundary, allowing the user to mute immediately and then continue to the completion screen.
 
-Trước khi bắt đầu, hãy đảm bảo bạn có:
+## 🧭 How a Focus Session works
 
-- **Node.js** (phiên bản 16 trở lên) - [Tải tại đây](https://nodejs.org/)
-- **npm** (đi kèm với Node.js)
-- **Google Chrome** browser
-- **Git** (tùy chọn, để clone repository)
+```text
+Create session
+     ↓
+Configure timer · tasks · ambient mix · blocked sites
+     ↓
+Start focus ───────────────┐
+     ↓                     │
+Work complete → Break      │
+     ↓                     │
+Break complete → next Work ┘
+     ↓
+Stop / complete → session history
+```
 
----
+Each work cycle is tracked independently, so a long session can show meaningful progress even when it contains several work/break transitions.
 
-### **📥 Bước 1: Tải Mã Nguồn**
+## 🖼️ Screenshots
 
-#### **Clone với Git**
+Add your product screenshots to `docs/images/` and replace the placeholders below.
+
+| Home                                                | Focus Session                                     |
+| --------------------------------------------------- | ------------------------------------------------- |
+| ![Home](docs/images/home.png)                       | ![Focus Session](docs/images/focus-session.png)   |
+| ![Pomodoro](docs/images/pomodoro.png)               | ![Ambient Sounds](docs/images/ambient-sounds.png) |
+| ![Website Blocker](docs/images/website-blocker.png) | ![Todo List](docs/images/todo-list.png)           |
+
+## ⚡ Quick start
+
+### Requirements
+
+- Google Chrome 127 or newer (required for the alarm popup flow).
+- Node.js and npm.
+
+### Install and load the extension
 
 ```bash
 git clone https://github.com/NguyenHungCuongg/Beeyond-Limits.git
-cd Beeyond-Limits
-```
-
----
-
-### **⚙️ Bước 2: Cài Đặt Dependencies**
-
-```bash
+cd Beeyond Limits
 npm install
-```
-
----
-
-### **🔨 Bước 3: Build Extension**
-
-```bash
 npm run build
 ```
 
-✅ **Kiểm tra**: Bạn sẽ thấy thư mục `dist` trong project với khoảng 20 files.
+Then open `chrome://extensions` in Chrome:
 
----
+1. Enable **Developer mode**.
+2. Click **Load unpacked**.
+3. Select the generated `dist/` directory.
+4. Pin Beeyond Limits to the toolbar for quick access.
 
-### **🔧 Bước 4: Cài Đặt Vào Chrome**
+After source changes, run `npm run build` again and click **Reload** on the extension card.
 
-#### **Bật Developer Mode:**
+## 🛠️ Development commands
 
-1. Mở Google Chrome
-2. Truy cập `chrome://extensions/`
-3. Bật **"Developer mode"** (góc trên bên phải)
+| Command              | Purpose                                               |
+| -------------------- | ----------------------------------------------------- |
+| `npm run dev`        | Start the Vite development server.                    |
+| `npm run build`      | Build the extension and copy MV3 assets into `dist/`. |
+| `npm run copy-files` | Copy extension-only files after a build.              |
+| `npm test`           | Run the Node test suite.                              |
+| `npm run lint`       | Check the codebase with ESLint.                       |
+| `npm run preview`    | Preview the production build locally.                 |
 
-#### **Load Extension:**
+For extension integration work, use the production build and load `dist/` in Chrome. This exercises the service worker, alarms, storage, declarative network rules, offscreen audio, and popup lifecycle together.
 
-1. Nhấp **"Load unpacked"**
-2. Điều hướng đến thư mục project của bạn
-3. Chọn thư mục **`dist`** (⚠️ Quan trọng: Chọn thư mục `dist`, không phải thư mục project chính)
-4. Nhấp **"Select Folder"**
+## 🧱 Architecture
 
-#### **Xác Nhận Cài Đặt:**
+Beeyond Limits is a React 19 + Vite frontend packaged as a Chrome Manifest V3 extension.
 
-- Extension sẽ xuất hiện trong danh sách extensions
-- Bạn sẽ thấy icon **Beeyond Limits** trên thanh công cụ Chrome
-- Trạng thái extension hiển thị **"Enabled"**
+```text
+src/
+├── background.js          # MV3 service worker and authoritative timers
+├── core/
+│   ├── focusSession.js     # Pure Focus Session state machine
+│   ├── focusStorage.js     # chrome.storage persistence
+│   ├── focusConnectors.js  # Timer, task, sound, and blocker integration
+│   └── audio.js             # Offscreen audio protocol and playback
+├── components/             # Reusable UI and session controls
+├── pages/                  # Home, quick tools, active session, completion, alarm
+└── hooks/                  # React state and extension messaging hooks
+tests/                      # Domain, background, audio, and regression tests
+manifest.json               # Chrome MV3 extension manifest
+```
 
----
+The service worker owns the authoritative Focus Session state and schedules phase transitions with `chrome.alarms`, so the timer continues when the popup is closed. UI pages communicate with it through a small message protocol and recover state from `chrome.storage.local`.
 
-### **🎉 Bước 5: Bắt Đầu Sử Dụng**
+### Persistence
 
-## 📱 **Giao Diện**
+The current implementation uses these local storage records:
 
-### **🏠 Trang Chủ**
+- `activeFocusSession` — the currently running or paused session.
+- `focusSessionTemplates` — saved session configurations.
+- `focusSessionHistory` — completed and abandoned sessions.
+- `focusSessionPreferences` — user-level session preferences.
 
-<div align="center">
-  <img src="./screenshots/home-1.png" alt="Trang Chủ 1" width="45%" />
-  <img src="./screenshots/home-2.png" alt="Trang Chủ 2" width="45%" />
-</div>
+No backend is required to run the extension locally.
 
-### **🍅 Pomodoro Timer**
+## 🧪 Quality checks
 
-<div align="center">
-  <img src="./screenshots/pomodoro-1.png" alt="Pomodoro Timer 1" width="45%" />
-  <img src="./screenshots/pomodoro-2.png" alt="Pomodoro Timer 2" width="45%" />
-</div>
+Before opening a pull request, run:
 
-### **📝 Quản Lý Công Việc**
+```bash
+npm test
+npm run lint
+npm run build
+```
 
-<div align="center">
-  <img src="./screenshots/tasklist-1.png" alt="Task List 1" width="45%" />
-  <img src="./screenshots/tasklist-2.png" alt="Task List 2" width="45%" />
-</div>
+When changing background behavior, also manually verify the extension from a loaded `dist/` build: close and reopen the popup, let a phase transition occur, mute the alarm popup, and confirm the next Work/Break cycle resumes with the saved configuration.
 
-### **🚫 Chặn Website**
+## 🤝 Contributing
 
-<div align="center">
-  <img src="./screenshots/websiteblocker-1.png" alt="Website Blocker 1" width="45%" />
-  <img src="./screenshots/websiteblocker-2.png" alt="Website Blocker 2" width="45%" />
-</div>
+Contributions are welcome. A practical workflow is:
 
-### **🎵 Âm Thanh Tự Nhiên**
+1. Fork the repository and create a focused branch.
+2. Make the smallest change that solves the problem.
+3. Add or update regression tests for behavior changes.
+4. Run the test, lint, and build commands above.
+5. Open a pull request describing the user problem, the approach, and how it was verified.
 
-<div align="center">
-  <img src="./screenshots/ambientsound-1.png" alt="Ambient Sounds 1" width="45%" />
-  <img src="./screenshots/ambientsound-2.png" alt="Ambient Sounds 2" width="45%" />
-</div>
+Please preserve the existing neo-brutalist visual language, keep Focus Session state transitions deterministic, and avoid coupling the session blocker to the standalone Website Blocker quick tool.
 
----
+## 🗺️ Possible next steps
 
-## 📞 **Liên Hệ**
+The project is intentionally small and personal-first. Potential future work includes:
 
-Nếu bạn có câu hỏi hoặc cần hỗ trợ, liên hệ:
+- publishing a stable Chrome Web Store build;
+- richer session history and completion insights;
+- export/import for local session templates;
+- keyboard shortcuts and accessibility refinements;
+- additional ambient sound packs and session presets.
 
-- **Email**: cuonghungnguyentop@gmail.com
-- **GitHub Issues**: [GitHub Issues](https://github.com/NguyenHungCuongg/Beeyond-Limits/issues)
-- **Facebook** : [https://www.facebook.com/cuong.nguyen.813584/](https://www.facebook.com/cuong.nguyen.813584/)
-- **Linkedin** : [https://www.linkedin.com/in/c%C6%B0%E1%BB%9Dng-nguy%E1%BB%85n-76153a333/](https://www.linkedin.com/in/c%C6%B0%E1%BB%9Dng-nguy%E1%BB%85n-76153a333/)
+Ideas and bug reports are especially useful when they include the expected session flow, Chrome version, and reproduction steps.
