@@ -26,7 +26,7 @@
 </pre>
 <div align="center">
   <p><strong>Find your flow, own your time.</strong></p>
-  <p>A session-first Chrome extension that turns a timer, task list, website blocker, and ambient sound mixer into one focused workflow.</p>
+  <p>A Chrome extension that turns a timer, task list, website blocker, and ambient sound mixer into one focused workflow.</p>
   <p>
     <a href="#-why-beeyond-limits">Why Beeyond Limits</a> ·
     <a href="#-features">Features</a> ·
@@ -39,6 +39,7 @@
     <img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111827">
     <img alt="Vite" src="https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white">
     <img alt="Local first" src="https://img.shields.io/badge/Storage-local--first-16A34A">
+    <img alt="MIT" src="https://img.shields.io/badge/License-MIT-6257c8">
   </p>
 </div>
 
@@ -94,7 +95,7 @@ Create session
      ↓
 Configure timer · tasks · ambient mix · blocked sites
      ↓
-Start focus ───────────────┐
+Start focus <──────────────┐
      ↓                     │
 Work complete → Break      │
      ↓                     │
@@ -107,13 +108,11 @@ Each work cycle is tracked independently, so a long session can show meaningful 
 
 ## 🖼️ Screenshots
 
-Add your product screenshots to `docs/images/` and replace the placeholders below.
-
-| Home                                                | Focus Session                                     |
-| --------------------------------------------------- | ------------------------------------------------- |
-| ![Home](docs/images/home.png)                       | ![Focus Session](docs/images/focus-session.png)   |
-| ![Pomodoro](docs/images/pomodoro.png)               | ![Ambient Sounds](docs/images/ambient-sounds.png) |
-| ![Website Blocker](docs/images/website-blocker.png) | ![Todo List](docs/images/todo-list.png)           |
+| Home                                          | Focus Session                               |
+| --------------------------------------------- | ------------------------------------------- |
+| ![Home](public/images/Home.png)               | ![Focus Session](public/images/Session.png) |
+| ![Pomodoro](public/images/Pomodoro.png)       | ![Ambient Sounds](public/images/Sounds.png) |
+| ![Website Blocker](public/images/Blocker.png) | ![Todo List](public/images/Tasks.png)       |
 
 ## ⚡ Quick start
 
@@ -208,15 +207,3 @@ Contributions are welcome. A practical workflow is:
 5. Open a pull request describing the user problem, the approach, and how it was verified.
 
 Please preserve the existing neo-brutalist visual language, keep Focus Session state transitions deterministic, and avoid coupling the session blocker to the standalone Website Blocker quick tool.
-
-## 🗺️ Possible next steps
-
-The project is intentionally small and personal-first. Potential future work includes:
-
-- publishing a stable Chrome Web Store build;
-- richer session history and completion insights;
-- export/import for local session templates;
-- keyboard shortcuts and accessibility refinements;
-- additional ambient sound packs and session presets.
-
-Ideas and bug reports are especially useful when they include the expected session flow, Chrome version, and reproduction steps.

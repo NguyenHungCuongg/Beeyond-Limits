@@ -47,7 +47,7 @@ function Task({ task, onToggle, onDelete, onEdit }) {
       </button>
 
       {/* Task Text */}
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         {isEditing ? (
           <input
             aria-label={`Edit task: ${task.text}`}
@@ -60,13 +60,13 @@ function Task({ task, onToggle, onDelete, onEdit }) {
             autoFocus
           />
         ) : (
-          <span
-            className={`font-sans font-bold text-lg text-ink uppercase ${
+          <div
+            className={`font-sans font-bold text-lg text-ink uppercase break-words ${
               task.completed ? "line-through" : ""
             }`}
           >
             {task.text}
-          </span>
+          </div>
         )}
 
         {/* Task metadata */}
