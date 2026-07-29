@@ -353,6 +353,14 @@ class BackgroundPomodoroManager {
     });
   }
 
+  async testNotification() {
+    const audioUrl = this.chromeApi.runtime.getURL(`audio/${getAlarmAudioUrl()}`);
+    return this.offscreenBridge.send({
+      type: "TEST_ALARM",
+      audioUrl,
+    });
+  }
+
   showNotification(context) {
     const startingBreak = context === "break";
     this.chromeApi.notifications
@@ -1120,7 +1128,7 @@ chromeApi.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return respond(
         sendResponse,
         pomodoroManager.ready.then(() =>
-          pomodoroManager.playNotification(message.context),
+          pomodoroManager.testNotification(),
         ),
       );
     case "AMBIENT_UPDATE_SETTINGS":

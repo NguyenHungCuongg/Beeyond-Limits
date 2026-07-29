@@ -54,6 +54,21 @@ test("offscreen handler handles START_ALARM and loops it", async () => {
   assert.deepEqual(FakeAudio.played, ["alarm.m4a"]);
 });
 
+test("offscreen handler plays test alarms once without looping", async () => {
+  FakeAudio.played = [];
+  const controller = createOffscreenAudioController({ AudioCtor: FakeAudio });
+  const handleMessage = createOffscreenMessageHandler(controller);
+
+  const response = await handleMessage({
+    type: "TEST_ALARM",
+    audioUrl: "alarm.m4a",
+    target: "offscreen",
+  });
+
+  assert.deepEqual(response, { success: true });
+  assert.deepEqual(FakeAudio.played, ["alarm.m4a"]);
+});
+
 test("offscreen handler reports playback failures instead of fake success", async () => {
   FakeAudio.failNextPlay = true;
   const controller = createOffscreenAudioController({ AudioCtor: FakeAudio });

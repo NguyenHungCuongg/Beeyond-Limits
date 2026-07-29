@@ -41,6 +41,21 @@ export function createOffscreenAudioController({
     }
   }
 
+  async function testAlarm(audioUrl, volume = 0.7) {
+    if (!audioUrl) throw new Error("Alarm audio URL is required");
+
+    const audio = new AudioCtor(audioUrl);
+    audio.loop = false;
+    audio.volume = clampVolume(volume, 0.7);
+
+    try {
+      await audio.play();
+    } catch (error) {
+      stopAudio(audio);
+      throw error;
+    }
+  }
+
   function stopAlarm() {
     if (alarmAudio) {
       stopAudio(alarmAudio);
@@ -105,6 +120,7 @@ export function createOffscreenAudioController({
 
   return {
     startAlarm,
+    testAlarm,
     stopAlarm,
     startAmbientSound,
     stopAmbientSound,
@@ -122,6 +138,9 @@ export function createOffscreenMessageHandler(controller) {
           return { success: true, ready: true };
         case "START_ALARM":
           await controller.startAlarm(message.audioUrl, message.volume);
+          return { success: true };
+        case "TEST_ALARM":
+          await controller.testAlarm(message.audioUrl, message.volume);
           return { success: true };
         case "STOP_ALARM":
           controller.stopAlarm();

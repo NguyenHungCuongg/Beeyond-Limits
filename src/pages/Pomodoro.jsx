@@ -16,7 +16,6 @@ function Pomodoro({ onNavigate }) {
   const [isActive, setIsActive] = useState(false);
   const [isBreak, setIsBreak] = useState(false);
   const [sessionCount, setSessionCount] = useState(0);
-  const [audioEnabled, setAudioEnabled] = useState(true);
   const initialTimeRef = useRef(25 * 60);
 
   const applyState = useCallback((state) => {
@@ -26,7 +25,6 @@ function Pomodoro({ onNavigate }) {
     setSessionCount(state.sessionCount);
     setFocusTime(state.focusTime);
     setBreakTime(state.breakTime);
-    setAudioEnabled(state.audioEnabled);
     initialTimeRef.current = state.initialTime;
   }, []);
 
@@ -111,17 +109,9 @@ function Pomodoro({ onNavigate }) {
     updateSetting({ breakTime: value });
   }
 
-  function handleAudioToggle() {
-    const nextAudioEnabled = !audioEnabled;
-    setAudioEnabled(nextAudioEnabled);
-    updateSetting({ audioEnabled: nextAudioEnabled });
-  }
 
   async function handleTestAudio() {
-    if (!audioEnabled) return;
-    await runCommand("POMODORO_TEST_AUDIO", {
-      context: isBreak ? "focus" : "break",
-    });
+    await runCommand("POMODORO_TEST_AUDIO");
   }
 
   const progress =
@@ -204,9 +194,7 @@ function Pomodoro({ onNavigate }) {
             onChange={handleBreakTimeChange}
           />
           <AudioControl
-            audioEnabled={audioEnabled}
-            onAudioToggle={handleAudioToggle}
-            onTestAudio={handleTestAudio}
+onTestAudio={handleTestAudio}
           />
         </div>
 
