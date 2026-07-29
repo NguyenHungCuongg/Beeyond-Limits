@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Home from "./pages/Home";
 import Pomodoro from "./pages/Pomodoro";
 import TaskList from "./pages/TaskList";
@@ -7,14 +7,36 @@ import AmbientSounds from "./pages/AmbientSounds";
 import FocusSessionSetup from "./pages/FocusSessionSetup";
 import ActiveFocusSession from "./pages/ActiveFocusSession";
 import FocusSessionComplete from "./pages/FocusSessionComplete";
+import AlarmPopup from "./pages/AlarmPopup";
 import SavedSessions from "./pages/SavedSessions";
 import { useFocusSession } from "./hooks/useFocusSession";
 import { Toaster } from "react-hot-toast";
 
 function App() {
-  const [currentPage, setCurrentPage] = useState("home");
+  const initialView = new URLSearchParams(globalThis.location?.search || "").get("view");
+  const [currentPage, setCurrentPage] = useState(
+    ["alarm", "focus-complete"].includes(initialView) ? initialView : "home",
+  );
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const hasRoutedInitialState = useRef(false);
   const focusSession = useFocusSession();
+
+  useEffect(() => {
+    if (focusSession.isLoading || hasRoutedInitialState.current) return;
+    hasRoutedInitialState.current = true;
+
+    const status = focusSession.activeSession?.status;
+    if (
+      focusSession.pendingAlarm &&
+      ["focus_completed", "break_completed"].includes(status)
+    ) {
+      setCurrentPage("alarm");
+    } else if (
+      ["active_focus", "paused_focus", "active_break", "paused_break"].includes(status)
+    ) {
+      setCurrentPage("focus-active");
+    }
+  }, [focusSession.isLoading, focusSession.pendingAlarm, focusSession.activeSession]);
 
   const navigateTo = (page) => {
     setCurrentPage(page);
@@ -51,7 +73,13 @@ function App() {
             focusSession={focusSession}
           />
         );
-      case "focus-complete":
+      case "alarm":
+        return (
+          <AlarmPopup
+            onNavigate={navigateTo}
+            focusSession={focusSession}
+          />
+        );      case "focus-complete":
         return (
           <FocusSessionComplete
             onNavigate={navigateTo}

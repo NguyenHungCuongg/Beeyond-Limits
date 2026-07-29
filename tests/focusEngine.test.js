@@ -23,6 +23,12 @@ function createMockChrome(initialStorage = {}) {
   const alarmsCreated = [];
   const alarmsCleared = [];
   const notificationsCreated = [];
+  const notificationButtonListeners = [];
+  const notificationClickListeners = [];
+  const notificationsCleared = [];
+  const badgeTexts = [];
+  const tabsCreated = [];
+  const popupsOpened = [];
   const broadcastMessages = [];
   const messageListeners = [];
   const alarmListeners = [];
@@ -58,9 +64,23 @@ function createMockChrome(initialStorage = {}) {
       },
     },
     notifications: {
-      async create(options) {
-        notificationsCreated.push(options);
+      onButtonClicked: {
+        addListener(listener) {
+          notificationButtonListeners.push(listener);
+        },
+      },
+      onClicked: {
+        addListener(listener) {
+          notificationClickListeners.push(listener);
+        },
+      },
+      async create(...args) {
+        notificationsCreated.push(args.at(-1));
         return "notification_id";
+      },
+      async clear(id) {
+        notificationsCleared.push(id);
+        return true;
       },
     },
     offscreen: {
@@ -94,6 +114,20 @@ function createMockChrome(initialStorage = {}) {
         addListener(listener) {
           installedListeners.push(listener);
         },
+      },
+    },
+    action: {
+      async setBadgeText({ text }) {
+        badgeTexts.push(text);
+      },
+      async openPopup() {
+        popupsOpened.push(true);
+      },
+    },
+    tabs: {
+      async create(details) {
+        tabsCreated.push(details);
+        return { id: tabsCreated.length };
       },
     },
     storage: {
@@ -130,6 +164,12 @@ function createMockChrome(initialStorage = {}) {
     alarmsCreated,
     alarmsCleared,
     notificationsCreated,
+    notificationButtonListeners,
+    notificationClickListeners,
+    notificationsCleared,
+    badgeTexts,
+    tabsCreated,
+    popupsOpened,
     broadcastMessages,
     messageListeners,
     alarmListeners,
@@ -254,7 +294,7 @@ serialTest(
     assert.equal(history.length, 1);
     assert.equal(history[0].runtimeId, "session_test_expired");
     assert.equal(history[0].status, "focus_completed");
-    assert.equal(mock.notificationsCreated.length, 1);
+    assert.equal(mock.notificationsCreated.length, 0);
 
     delete globalThis.chrome;
   },
@@ -581,7 +621,7 @@ serialTest(
 );
 
 serialTest(
-  "Alarm Triggers & Single-Flight Completion: triggers notification and is idempotent",
+  "Alarm Triggers & Single-Flight Completion: opens alarm popup and is idempotent",
   async () => {
     const session = {
       id: "session_alarm_test",
@@ -620,6 +660,11 @@ serialTest(
     const history = mock.storageState.focusSessionHistory || [];
     assert.equal(history.length, 1);
     assert.equal(history[0].runtimeId, "session_alarm_test");
+    assert.equal(mock.storageState.focusPendingAlarm.sessionId, session.id);
+    assert.equal(mock.notificationsCreated.length, 0);
+    assert.ok(mock.popupsOpened.length >= 1);
+    assert.equal(mock.badgeTexts.at(-1), "!");
+
 
     // Attempting another completion after promise resolved should be idempotent via isDuplicateCompletion
     await bg.focusManager.completeCurrentPhase();

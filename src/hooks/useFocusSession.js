@@ -4,6 +4,7 @@ import { createFocusSessionClient } from "../core/focusSessionClient.js";
 
 const EMPTY_STATE = Object.freeze({
   activeSession: null,
+  pendingAlarm: null,
   templates: [],
   history: [],
   preferences: null,
@@ -35,6 +36,7 @@ export function useFocusSession() {
       if (mountedRef.current) {
         setState({
           activeSession: next.activeSession ?? null,
+          pendingAlarm: next.pendingAlarm ?? null,
           templates: Array.isArray(next.templates) ? next.templates : [],
           history: Array.isArray(next.history) ? next.history : [],
           preferences: next.preferences ?? null,

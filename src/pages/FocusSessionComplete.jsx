@@ -48,6 +48,7 @@ export default function FocusSessionComplete({ onNavigate, focusSession }) {
 
   async function handleStartBreak() {
     try {
+      focusSession.stopAlarm().catch(() => {});
       await focusSession.startBreak(session.id, breakMinutes);
       onNavigate("focus-active");
     } catch {
@@ -57,6 +58,7 @@ export default function FocusSessionComplete({ onNavigate, focusSession }) {
 
   async function handleContinueFocus() {
     try {
+      focusSession.stopAlarm().catch(() => {});
       await focusSession.startNextCycle(session.id);
       onNavigate("focus-active");
     } catch {
@@ -66,18 +68,11 @@ export default function FocusSessionComplete({ onNavigate, focusSession }) {
 
   async function handleFinish() {
     try {
+      focusSession.stopAlarm().catch(() => {});
       await focusSession.finishSession(session.id);
       onNavigate("home");
     } catch {
       // Error is handled by hook
-    }
-  }
-
-  async function handleStopAlarm() {
-    try {
-      await focusSession.stopAlarm();
-    } catch {
-      // ignore
     }
   }
 
@@ -159,15 +154,6 @@ export default function FocusSessionComplete({ onNavigate, focusSession }) {
         )}
 
         <div className="space-y-3 mb-8">
-          <button
-            type="button"
-            onClick={handleStopAlarm}
-            disabled={focusSession.isBusy}
-            className="w-full bg-canvas text-emerald brutal-border-light font-mono font-bold uppercase py-3 flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-paper transition-colors"
-          >
-            Mute Alarm
-          </button>
-
           {!isBreakCompleted ? (
             <button
               type="button"
