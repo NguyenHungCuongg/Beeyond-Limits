@@ -226,8 +226,15 @@ test("saveFocusTemplate creates a new template with generated ID when ID is omit
 
 test("saveFocusTemplate updates existing template when ID matches (collision handling)", async () => {
   const mockStorage = createMockStorage();
-  const templates = await getFocusTemplates(mockStorage);
-  const targetId = templates[0].id;
+  const original = await saveFocusTemplate(
+    {
+      name: "Original Session",
+      focusDuration: 25,
+      breakDuration: 5,
+    },
+    mockStorage,
+  );
+  const targetId = original.id;
 
   const updatedData = {
     id: targetId,
@@ -242,7 +249,7 @@ test("saveFocusTemplate updates existing template when ID matches (collision han
   assert.equal(saved.focusDuration, 30);
 
   const updatedTemplates = await getFocusTemplates(mockStorage);
-  assert.equal(updatedTemplates.length, DEFAULT_TEMPLATES.length);
+  assert.equal(updatedTemplates.length, 1);
   assert.equal(updatedTemplates[0].name, "Updated Pomodoro 25");
   assert.equal(updatedTemplates[0].focusDuration, 30);
 });
@@ -264,16 +271,23 @@ test("saveFocusTemplate normalizes name length and clamps duration bounds", asyn
   assert.equal(saved.breakDuration, 1);
 });
 
-test("deleteFocusTemplate removes template by ID and returns true", async () => {
+test("deleteFocusTemplate removes a user-created template and returns true", async () => {
   const mockStorage = createMockStorage();
-  const templates = await getFocusTemplates(mockStorage);
-  const deleteId = templates[0].id;
+  const saved = await saveFocusTemplate(
+    {
+      name: "Session to delete",
+      focusDuration: 25,
+      breakDuration: 5,
+    },
+    mockStorage,
+  );
+  const deleteId = saved.id;
 
   const result = await deleteFocusTemplate(deleteId, mockStorage);
   assert.equal(result, true);
 
   const remaining = await getFocusTemplates(mockStorage);
-  assert.equal(remaining.length, DEFAULT_TEMPLATES.length - 1);
+  assert.equal(remaining.length, 0);
   assert.equal(remaining.some((t) => t.id === deleteId), false);
 });
 

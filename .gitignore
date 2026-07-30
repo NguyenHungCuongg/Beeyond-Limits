@@ -26,3 +26,7 @@ dist-ssr
 # Agent
 tasks
 .agents
+
+# Policies
+Google-Chrome-Web-Store-Developer-Agreement.md
+Program-Policies.md

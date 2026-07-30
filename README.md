@@ -32,6 +32,7 @@
     <a href="#-features">Features</a> ·
     <a href="#-quick-start">Quick start</a> ·
     <a href="#-architecture">Architecture</a> ·
+    <a href="#-open-source--privacy">Open source & privacy</a> ·
     <a href="#-contributing">Contributing</a>
   </p>
   <p>
@@ -195,6 +196,16 @@ npm run build
 ```
 
 When changing background behavior, also manually verify the extension from a loaded `dist/` build: close and reopen the popup, let a phase transition occur, mute the alarm popup, and confirm the next Work/Break cycle resumes with the saved configuration.
+
+## 🔓 Open source & privacy
+
+Beeyond Limits is released under the [MIT License](LICENSE) and is designed to keep user-created extension data on the local device.
+
+- [Privacy Policy](PRIVACY.md)
+- [Contributing Guide](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
+- [Third-Party Notices](THIRD_PARTY_NOTICES.md)
+- [Chrome Web Store permission rationale](docs/CHROME_WEB_STORE.md)
 
 ## 🤝 Contributing
 

@@ -5,6 +5,9 @@ import { readFile } from "node:fs/promises";
 const manifest = JSON.parse(
   await readFile(new URL("../manifest.json", import.meta.url), "utf8"),
 );
+const packageJson = JSON.parse(
+  await readFile(new URL("../package.json", import.meta.url), "utf8"),
+);
 
 test("manifest declares APIs used by the service worker", () => {
   assert.equal(manifest.permissions.includes("alarms"), true);
@@ -23,4 +26,29 @@ test("manifest exposes only the redirect page to websites", () => {
 
 test("manifest does not register the obsolete static ruleset", () => {
   assert.equal("declarative_net_request" in manifest, false);
+});
+
+test("manifest keeps broad host access for user-selected blocking", () => {
+  assert.deepEqual(manifest.host_permissions, ["<all_urls>"]);
+});
+
+test("manifest metadata is ready for Chrome Web Store releases", () => {
+  assert.ok(manifest.description.length <= 132);
+  assert.equal(packageJson.version, manifest.version);
+});
+
+test("extension pages load packaged fonts instead of remote stylesheets", async () => {
+  const [popupHtml, blockedHtml, fontStyles] = await Promise.all([
+    readFile(new URL("../index.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/blocked.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/fonts/fonts.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.equal(popupHtml.includes("fonts.googleapis.com"), false);
+  assert.equal(blockedHtml.includes("fonts.googleapis.com"), false);
+  assert.match(popupHtml, /fonts\/fonts\.css/);
+  assert.match(blockedHtml, /fonts\/fonts\.css/);
+  assert.match(fontStyles, /Anton-Regular\.ttf/);
+  assert.match(fontStyles, /Outfit-Variable\.ttf/);
+  assert.match(fontStyles, /JetBrainsMono-Variable\.ttf/);
 });

@@ -81,10 +81,9 @@ test("DEFAULT_FOCUS_SETTINGS has standard defaults", () => {
   assert.equal(DEFAULT_FOCUS_SETTINGS.ambientSound.volume, 50);
 });
 
-test("DEFAULT_TEMPLATES contains 1 preset templates", () => {
-  assert.strictEqual(DEFAULT_TEMPLATES.length, 1);
-  assert.equal(DEFAULT_TEMPLATES[0].id, "template_quick_25");
-  assert.equal(DEFAULT_TEMPLATES[0].focusDuration, 25);
+test("DEFAULT_TEMPLATES starts empty and is frozen", () => {
+  assert.deepEqual(DEFAULT_TEMPLATES, []);
+  assert.equal(Object.isFrozen(DEFAULT_TEMPLATES), true);
 });
 
 // ==========================================
