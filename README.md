@@ -44,10 +44,9 @@
   </p>
 </div>
 
-<!-- Replace this placeholder with your hero image or product mockup. -->
-<!-- <p align="center">
-  <img src="docs/images/hero.png" alt="Beeyond Limits product preview" width="760">
-</p> -->
+<p align="center">
+  <img src="public/images/chrome-store.png" alt="Beeyond Limits product preview" width="760">
+</p>
 
 ## ✨ Why Beeyond Limits
 
